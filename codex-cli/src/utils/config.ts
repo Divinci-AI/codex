@@ -137,6 +137,99 @@ export function getApiKey(provider: string = "openai"): string | undefined {
 
 export type FileOpenerScheme = "vscode" | "cursor" | "windsurf";
 
+// ---------------------------------------------------------------------------
+// Lifecycle Hooks Configuration
+// ---------------------------------------------------------------------------
+
+/**
+ * Configuration for a single lifecycle hook.
+ */
+export type LifecycleHookConfig = {
+  /** Path to the script to execute (relative to working directory) */
+  script: string;
+  /** Whether to execute the hook asynchronously (default: false) */
+  async?: boolean;
+  /** Timeout in milliseconds for hook execution (default: uses global timeout) */
+  timeout?: number;
+  /** Filtering criteria for when this hook should execute */
+  filter?: {
+    /** Only execute for commands matching these patterns */
+    commands?: Array<string>;
+    /** Only execute for these message types (for agent hooks) */
+    messageTypes?: Array<string>;
+    /** Only execute for these exit codes (for command completion hooks) */
+    exitCodes?: Array<number>;
+    /** Only execute in these working directories (glob patterns supported) */
+    workingDirectories?: Array<string>;
+    /** Only execute for these file extensions (for patch hooks) */
+    fileExtensions?: Array<string>;
+    /** Only execute if execution duration is within these bounds (ms) */
+    durationRange?: {
+      min?: number;
+      max?: number;
+    };
+    /** Only execute during these time periods */
+    timeRange?: {
+      /** Start time in HH:MM format (24-hour) */
+      start?: string;
+      /** End time in HH:MM format (24-hour) */
+      end?: string;
+      /** Days of week (0=Sunday, 1=Monday, etc.) */
+      daysOfWeek?: Array<number>;
+    };
+    /** Only execute if environment variables match */
+    environment?: Record<string, string | RegExp>;
+    /** Custom JavaScript expression for complex filtering */
+    customExpression?: string;
+  };
+  /** Additional environment variables to pass to the hook script */
+  environment?: Record<string, string>;
+};
+
+/**
+ * Complete lifecycle hooks configuration.
+ */
+export type LifecycleHooksConfig = {
+  /** Whether lifecycle hooks are enabled */
+  enabled: boolean;
+  /** Default timeout in milliseconds for hook execution */
+  timeout: number;
+  /** Working directory for hook execution (relative to project root) */
+  workingDirectory: string;
+  /** Global environment variables available to all hooks */
+  environment: Record<string, string>;
+  /** Individual hook configurations */
+  hooks: {
+    /** Executed when a task starts */
+    onTaskStart?: LifecycleHookConfig;
+    /** Executed when a task completes successfully */
+    onTaskComplete?: LifecycleHookConfig;
+    /** Executed when a task encounters an error */
+    onTaskError?: LifecycleHookConfig;
+    /** Executed before a command runs */
+    onCommandStart?: LifecycleHookConfig;
+    /** Executed after a command completes */
+    onCommandComplete?: LifecycleHookConfig;
+    /** Executed when a code patch is applied */
+    onPatchApply?: LifecycleHookConfig;
+    /** Executed when the agent sends a message */
+    onAgentMessage?: LifecycleHookConfig;
+    /** Executed when the agent provides reasoning */
+    onAgentReasoning?: LifecycleHookConfig;
+    /** Executed when an MCP tool is called */
+    onMcpToolCall?: LifecycleHookConfig;
+  };
+};
+
+/** Default lifecycle hooks configuration */
+export const DEFAULT_LIFECYCLE_HOOKS_CONFIG: LifecycleHooksConfig = {
+  enabled: false,
+  timeout: 30000, // 30 seconds
+  workingDirectory: ".",
+  environment: {},
+  hooks: {},
+};
+
 // Represents config as persisted in config.json.
 export type StoredConfig = {
   model?: string;
@@ -170,6 +263,9 @@ export type StoredConfig = {
    * terminal output.
    */
   fileOpener?: FileOpenerScheme;
+
+  /** Lifecycle hooks configuration */
+  lifecycleHooks?: Partial<LifecycleHooksConfig>;
 };
 
 // Minimal config written on first run.  An *empty* model string ensures that
@@ -215,6 +311,9 @@ export type AppConfig = {
     };
   };
   fileOpener?: FileOpenerScheme;
+
+  /** Lifecycle hooks configuration */
+  lifecycleHooks?: LifecycleHooksConfig;
 };
 
 // Formatting (quiet mode-only).
@@ -328,6 +427,55 @@ export type LoadConfigOptions = {
   isFullContext?: boolean;
 };
 
+/**
+ * Merges user-provided lifecycle hooks configuration with defaults.
+ * Validates the configuration and provides sensible defaults.
+ */
+function mergeLifecycleHooksConfig(
+  userConfig?: Partial<LifecycleHooksConfig>,
+): LifecycleHooksConfig {
+  if (!userConfig) {
+    return DEFAULT_LIFECYCLE_HOOKS_CONFIG;
+  }
+
+  // Merge with defaults
+  const merged: LifecycleHooksConfig = {
+    enabled: userConfig.enabled ?? DEFAULT_LIFECYCLE_HOOKS_CONFIG.enabled,
+    timeout: userConfig.timeout ?? DEFAULT_LIFECYCLE_HOOKS_CONFIG.timeout,
+    workingDirectory:
+      userConfig.workingDirectory ??
+      DEFAULT_LIFECYCLE_HOOKS_CONFIG.workingDirectory,
+    environment: {
+      ...DEFAULT_LIFECYCLE_HOOKS_CONFIG.environment,
+      ...userConfig.environment,
+    },
+    hooks: {
+      ...DEFAULT_LIFECYCLE_HOOKS_CONFIG.hooks,
+      ...userConfig.hooks,
+    },
+  };
+
+  // Validate timeout values
+  if (merged.timeout <= 0) {
+    log(
+      `[codex] Invalid lifecycle hooks timeout: ${merged.timeout}. Using default: ${DEFAULT_LIFECYCLE_HOOKS_CONFIG.timeout}`,
+    );
+    merged.timeout = DEFAULT_LIFECYCLE_HOOKS_CONFIG.timeout;
+  }
+
+  // Validate hook configurations
+  Object.entries(merged.hooks).forEach(([hookName, hookConfig]) => {
+    if (hookConfig && !hookConfig.script) {
+      log(
+        `[codex] Lifecycle hook '${hookName}' is missing required 'script' property. Hook will be ignored.`,
+      );
+      delete (merged.hooks as Record<string, unknown>)[hookName];
+    }
+  });
+
+  return merged;
+}
+
 export const loadConfig = (
   configPath: string | undefined = CONFIG_FILEPATH,
   instructionsPath: string | undefined = INSTRUCTIONS_FILEPATH,
@@ -439,6 +587,7 @@ export const loadConfig = (
     disableResponseStorage: storedConfig.disableResponseStorage === true,
     reasoningEffort: storedConfig.reasoningEffort,
     fileOpener: storedConfig.fileOpener,
+    lifecycleHooks: mergeLifecycleHooksConfig(storedConfig.lifecycleHooks),
   };
 
   // -----------------------------------------------------------------------
@@ -580,6 +729,17 @@ export const saveConfig = (
             maxLines: config.tools.shell.maxLines,
           }
         : undefined,
+    };
+  }
+
+  // Add lifecycle hooks settings if they exist and are enabled
+  if (config.lifecycleHooks && config.lifecycleHooks.enabled) {
+    configToSave.lifecycleHooks = {
+      enabled: config.lifecycleHooks.enabled,
+      timeout: config.lifecycleHooks.timeout,
+      workingDirectory: config.lifecycleHooks.workingDirectory,
+      environment: config.lifecycleHooks.environment,
+      hooks: config.lifecycleHooks.hooks,
     };
   }
 

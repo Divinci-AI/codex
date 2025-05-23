@@ -1,0 +1,88 @@
+# Advanced Lifecycle Hooks Configuration with Enhanced Filtering
+# This example demonstrates sophisticated filtering capabilities
+
+model: o4-mini
+provider: openai
+
+lifecycleHooks:
+  enabled: true
+  timeout: 30000
+  workingDirectory: "."
+  
+  environment:
+    PROJECT_NAME: "${PWD##*/}"
+    NOTIFICATION_WEBHOOK: "${SLACK_WEBHOOK_URL}"
+  
+  hooks:
+    # Only run for TypeScript/JavaScript file changes
+    onPatchApply:
+      script: "./hooks/code-quality-check.sh"
+      async: false
+      timeout: 60000
+      filter:
+        fileExtensions: ["ts", "tsx", "js", "jsx"]
+        
+    # Only notify about long-running deployment commands
+    onCommandComplete:
+      script: "./hooks/deployment-notification.sh"
+      async: true
+      filter:
+        commands: ["docker", "kubectl", "helm", "npm run deploy"]
+        durationRange:
+          min: 5000  # Only for commands taking more than 5 seconds
+        exitCodes: [0]  # Only successful deployments
+        customExpression: "command.join(' ').includes('production')"
+        
+    # Only run security checks during business hours on weekdays
+    onCommandStart:
+      script: "./hooks/security-audit.sh"
+      async: false
+      filter:
+        commands: ["/^(sudo|chmod|rm)/"]  # Regex pattern for dangerous commands
+        timeRange:
+          start: "09:00"
+          end: "17:00"
+          daysOfWeek: [1, 2, 3, 4, 5]  # Monday to Friday
+        environment:
+          NODE_ENV: "production"
+          
+    # Advanced filtering for test results
+    onCommandComplete:
+      script: "./hooks/test-results-processor.py"
+      async: true
+      filter:
+        commands: ["npm test", "pytest", "cargo test", "go test"]
+        customExpression: |
+          (exitCode === 0 && env.CI === 'true') || 
+          (exitCode !== 0 && workingDirectory.includes('critical'))
+          
+    # File-specific hooks for documentation updates
+    onPatchApply:
+      script: "./hooks/docs-generator.sh"
+      async: true
+      filter:
+        fileExtensions: ["md", "rst", "txt"]
+        workingDirectories: ["**/docs/**", "**/documentation/**"]
+        
+    # Performance monitoring for slow commands
+    onCommandComplete:
+      script: "./hooks/performance-monitor.js"
+      async: true
+      filter:
+        durationRange:
+          min: 10000  # Commands taking more than 10 seconds
+        customExpression: |
+          !command.join(' ').includes('sleep') && 
+          !command.join(' ').includes('wait')
+          
+    # Environment-specific deployment hooks
+    onTaskComplete:
+      script: "./hooks/deployment-complete.sh"
+      async: true
+      filter:
+        environment:
+          DEPLOY_ENV: "production"
+        customExpression: |
+          eventData.success && 
+          sessionId && 
+          Date.now() % 2 === 0  # Example: only run 50% of the time
