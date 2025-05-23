@@ -1,0 +1,61 @@
+# Example Codex CLI configuration with lifecycle hooks
+# Save this as ~/.codex/config.yaml
+
+model: o4-mini
+provider: openai
+
+# Lifecycle hooks configuration
+lifecycleHooks:
+  enabled: true
+  timeout: 30000  # 30 seconds default timeout
+  workingDirectory: "."  # relative to project root
+  
+  # Global environment variables available to all hooks
+  environment:
+    CODEX_PROJECT_NAME: "${PWD##*/}"
+    TEAM_WEBHOOK: "${SLACK_WEBHOOK_URL}"
+  
+  hooks:
+    # Task-level hooks
+    onTaskStart:
+      script: "./hooks/task-start.sh"
+      async: false
+      environment:
+        HOOK_TYPE: "task_start"
+        
+    onTaskComplete:
+      script: "./hooks/task-complete.sh"
+      async: true
+      environment:
+        HOOK_TYPE: "task_complete"
+        
+    onTaskError:
+      script: "./hooks/error-handler.sh"
+      async: false
+      
+    # Command execution hooks
+    onCommandStart:
+      script: "./hooks/command-start.sh"
+      async: false
+      filter:
+        commands: ["git", "npm", "docker", "kubectl"]
+        
+    onCommandComplete:
+      script: "./hooks/command-complete.py"
+      async: true
+      filter:
+        commands: ["npm test", "npm run build"]
+        exitCodes: [0]  # Only on success
+        
+    # Code modification hooks
+    onPatchApply:
+      script: "./hooks/patch-applied.sh"
+      async: false
+      timeout: 60000  # 1 minute for linting/testing
+      
+    # Agent interaction hooks
+    onAgentMessage:
+      script: "./hooks/agent-message.js"
+      async: true
+      filter:
+        messageTypes: ["response", "reasoning"]

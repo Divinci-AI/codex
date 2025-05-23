@@ -19,7 +19,9 @@ import {
   OPENAI_PROJECT,
   getBaseUrl,
   AZURE_OPENAI_API_VERSION,
+  DEFAULT_LIFECYCLE_HOOKS_CONFIG,
 } from "../config.js";
+import { HookExecutor, type HookContext } from "../lifecycle-hooks/hook-executor.js";
 import { log } from "../logger/log.js";
 import { parseToolCallArguments } from "../parsers.js";
 import { responsesCreateViaChatCompletions } from "../responses.js";
@@ -168,6 +170,8 @@ export class AgentLoop {
   private pendingAborts: Set<string> = new Set();
   /** Set to true by `terminate()` – prevents any further use of the instance. */
   private terminated = false;
+  /** Lifecycle hooks executor for triggering user-defined scripts */
+  private hookExecutor?: HookExecutor;
   /** Master abort controller – fires when terminate() is invoked. */
   private readonly hardAbort = new AbortController();
 
@@ -353,6 +357,14 @@ export class AgentLoop {
     setSessionId(this.sessionId);
     setCurrentModel(this.model);
 
+    // Initialize lifecycle hooks if enabled
+    if (this.config.lifecycleHooks?.enabled) {
+      this.hookExecutor = new HookExecutor(
+        this.config.lifecycleHooks ?? DEFAULT_LIFECYCLE_HOOKS_CONFIG,
+      );
+      log("[hooks] Lifecycle hooks enabled");
+    }
+
     this.hardAbort = new AbortController();
 
     this.hardAbort.signal.addEventListener(
@@ -455,6 +467,8 @@ export class AgentLoop {
         this.additionalWritableRoots,
         this.getCommandConfirmation,
         this.execAbortController?.signal,
+        this.hookExecutor,
+        this.sessionId,
       );
       outputItem.output = JSON.stringify({ output: outputText, metadata });
 
@@ -523,6 +537,8 @@ export class AgentLoop {
       this.additionalWritableRoots,
       this.getCommandConfirmation,
       this.execAbortController?.signal,
+      this.hookExecutor,
+      this.sessionId,
     );
     outputItem.output = JSON.stringify({ output: outputText, metadata });
 
@@ -565,6 +581,27 @@ export class AgentLoop {
       log(
         `AgentLoop.run(): new execAbortController created (${this.execAbortController.signal}) for generation ${this.generation}`,
       );
+
+      // Execute onTaskStart lifecycle hook
+      if (this.hookExecutor) {
+        try {
+          const hookContext: HookContext = {
+            sessionId: this.sessionId,
+            model: this.model,
+            workingDirectory: process.cwd(),
+            eventType: "task_start",
+            eventData: {
+              input: input.map(item => ({ type: item.type, content: item.content })),
+              previousResponseId,
+              generation: thisGeneration,
+            },
+          };
+          await this.hookExecutor.executeHook("onTaskStart", hookContext);
+        } catch (error) {
+          log(`[hooks] Error executing onTaskStart hook: ${error}`);
+          // Don't fail the task if hook fails
+        }
+      }
       // NOTE: We no longer (re‑)attach an `abort` listener to `hardAbort` here.
       // A single listener that forwards the `abort` to the current
       // `execAbortController` is installed once in the constructor. Re‑adding a
@@ -1356,9 +1393,51 @@ export class AgentLoop {
         }
       }, 3);
 
+      // Execute onTaskComplete lifecycle hook
+      if (this.hookExecutor) {
+        try {
+          const hookContext: HookContext = {
+            sessionId: this.sessionId,
+            model: this.model,
+            workingDirectory: process.cwd(),
+            eventType: "task_complete",
+            eventData: {
+              generation: thisGeneration,
+              success: !this.canceled && !this.hardAbort.signal.aborted,
+              thinkingTime: Date.now() - thinkingStart,
+            },
+          };
+          await this.hookExecutor.executeHook("onTaskComplete", hookContext);
+        } catch (error) {
+          log(`[hooks] Error executing onTaskComplete hook: ${error}`);
+          // Don't fail the task if hook fails
+        }
+      }
+
       // End of main logic. The corresponding catch block for the wrapper at the
       // start of this method follows next.
     } catch (err) {
+      // Execute onTaskError lifecycle hook
+      if (this.hookExecutor) {
+        try {
+          const hookContext: HookContext = {
+            sessionId: this.sessionId,
+            model: this.model,
+            workingDirectory: process.cwd(),
+            eventType: "task_error",
+            eventData: {
+              error: err instanceof Error ? err.message : String(err),
+              errorType: err instanceof Error ? err.constructor.name : "Unknown",
+              stack: err instanceof Error ? err.stack : undefined,
+            },
+          };
+          await this.hookExecutor.executeHook("onTaskError", hookContext);
+        } catch (hookError) {
+          log(`[hooks] Error executing onTaskError hook: ${hookError}`);
+          // Don't fail the task if hook fails
+        }
+      }
+
       // Handle known transient network/streaming issues so they do not crash the
       // CLI. We currently match Node/undici's `ERR_STREAM_PREMATURE_CLOSE`
       // error which manifests when the HTTP/2 stream terminates unexpectedly

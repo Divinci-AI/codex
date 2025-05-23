@@ -32,6 +32,7 @@
   - [Full configuration example](#full-configuration-example)
   - [Custom instructions](#custom-instructions)
   - [Environment variables setup](#environment-variables-setup)
+- [Lifecycle hooks](#lifecycle-hooks)
 - [FAQ](#faq)
 - [Zero data retention (ZDR) usage](#zero-data-retention-zdr-usage)
 - [Codex open source fund](#codex-open-source-fund)
@@ -476,6 +477,93 @@ export OPENROUTER_API_KEY="your-openrouter-key-here"
 
 # Similarly for other providers
 ```
+
+---
+
+## Lifecycle hooks
+
+Lifecycle hooks allow you to execute custom scripts at different stages of the Codex agent task cycle. This enables powerful integrations with external systems, custom workflows, and automation.
+
+### Quick Start
+
+Add lifecycle hooks to your configuration file (`~/.codex/config.yaml`):
+
+```yaml
+lifecycleHooks:
+  enabled: true
+  hooks:
+    onTaskStart:
+      script: "./hooks/task-start.sh"
+    onTaskComplete:
+      script: "./hooks/task-complete.sh"
+    onCommandStart:
+      script: "./hooks/command-start.sh"
+      filter:
+        commands: ["git", "npm", "docker"]
+```
+
+Create a simple hook script:
+
+```bash
+#!/bin/bash
+# hooks/task-start.sh
+
+echo "🚀 Codex task started!"
+echo "Session: $CODEX_SESSION_ID"
+echo "Model: $CODEX_MODEL"
+
+# Read event data from stdin
+EVENT_DATA=$(cat)
+echo "Event data: $EVENT_DATA"
+
+# Example: Send Slack notification
+# curl -X POST "$SLACK_WEBHOOK_URL" \
+#   -d "{\"text\":\"🚀 Codex task started in $(pwd)\"}"
+
+exit 0
+```
+
+### Hook Types
+
+- **Task-level hooks**: `onTaskStart`, `onTaskComplete`, `onTaskError`
+- **Command-level hooks**: `onCommandStart`, `onCommandComplete`
+- **Code-level hooks**: `onPatchApply`
+- **Agent-level hooks**: `onAgentMessage`, `onAgentReasoning`
+
+### Common Use Cases
+
+- **Git integration**: Auto-commit changes after successful tasks
+- **Notifications**: Send Slack/Discord alerts for deployments
+- **Quality gates**: Run linting/testing after code patches
+- **Metrics**: Collect usage analytics and performance data
+- **CI/CD integration**: Trigger builds and deployments
+
+### Advanced Filtering
+
+Hooks support sophisticated filtering:
+
+```yaml
+onCommandComplete:
+  script: "./hooks/deployment-notify.sh"
+  filter:
+    commands: ["docker", "kubectl"]
+    exitCodes: [0]  # Only successful commands
+    durationRange:
+      min: 5000  # Only long-running commands
+    timeRange:
+      start: "09:00"
+      end: "17:00"
+      daysOfWeek: [1, 2, 3, 4, 5]  # Weekdays only
+    customExpression: "command.includes('production')"
+```
+
+### Documentation
+
+For complete documentation, examples, and best practices, see:
+- [Quick Start Guide](./codex-cli/docs/lifecycle-hooks-quickstart.md) - Get started in 5 minutes
+- [Complete Documentation](./codex-cli/docs/lifecycle-hooks.md) - Full reference
+- [Example Hook Scripts](./codex-cli/examples/hooks/) - Ready-to-use scripts
+- [Advanced Configuration Examples](./codex-cli/examples/advanced-filtering-config.yaml) - Complex setups
 
 ---
 

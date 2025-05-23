@@ -1,5 +1,6 @@
 import type { CommandConfirmation } from "./agent-loop.js";
 import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
+import type { HookExecutor, HookContext } from "../lifecycle-hooks/hook-executor.js";
 import type { ExecInput } from "./sandbox/interface.js";
 import type { ResponseInputItem } from "openai/resources/responses/responses.mjs";
 
@@ -81,22 +82,47 @@ export async function handleExecCommand(
     applyPatch: ApplyPatchCommand | undefined,
   ) => Promise<CommandConfirmation>,
   abortSignal?: AbortSignal,
+  hookExecutor?: HookExecutor,
+  sessionId?: string,
 ): Promise<HandleExecCommandResult> {
   const { cmd: command, workdir } = args;
 
   const key = deriveCommandKey(command);
 
+  // Execute onCommandStart lifecycle hook
+  if (hookExecutor) {
+    try {
+      const hookContext: HookContext = {
+        sessionId: sessionId || "unknown",
+        model: config.model || "unknown",
+        workingDirectory: workdir || process.cwd(),
+        eventType: "command_start",
+        eventData: {
+          command,
+          workdir,
+          key,
+          timeoutInMillis: args.timeoutInMillis,
+        },
+      };
+      await hookExecutor.executeHook("onCommandStart", hookContext);
+    } catch (error) {
+      log(`[hooks] Error executing onCommandStart hook: ${error}`);
+      // Don't fail the command if hook fails
+    }
+  }
+
   // 1) If the user has already said "always approve", skip
   //    any policy & never sandbox.
   if (alwaysApprovedCommands.has(key)) {
-    return execCommand(
+    const summary = await execCommand(
       args,
       /* applyPatch */ undefined,
       /* runInSandbox */ false,
       additionalWritableRoots,
       config,
       abortSignal,
-    ).then(convertSummaryToResult);
+    );
+    return convertSummaryToResult(summary, args, config, hookExecutor, sessionId);
   }
 
   // 2) Otherwise fall back to the normal policy
@@ -184,24 +210,55 @@ export async function handleExecCommand(
         config,
         abortSignal,
       );
-      return convertSummaryToResult(summary);
+      return convertSummaryToResult(summary, args, config, hookExecutor, sessionId);
     }
   } else {
-    return convertSummaryToResult(summary);
+    return convertSummaryToResult(summary, args, config, hookExecutor, sessionId);
   }
 }
 
-function convertSummaryToResult(
+async function convertSummaryToResult(
   summary: ExecCommandSummary,
-): HandleExecCommandResult {
+  args: ExecInput,
+  config: AppConfig,
+  hookExecutor?: HookExecutor,
+  sessionId?: string,
+): Promise<HandleExecCommandResult> {
   const { stdout, stderr, exitCode, durationMs } = summary;
-  return {
+  const result = {
     outputText: stdout || stderr,
     metadata: {
       exit_code: exitCode,
       duration_seconds: Math.round(durationMs / 100) / 10,
     },
   };
+
+  // Execute onCommandComplete lifecycle hook
+  if (hookExecutor) {
+    try {
+      const hookContext: HookContext = {
+        sessionId: sessionId || "unknown",
+        model: config.model || "unknown",
+        workingDirectory: args.workdir || process.cwd(),
+        eventType: "command_complete",
+        eventData: {
+          command: args.cmd,
+          workdir: args.workdir,
+          exitCode,
+          stdout,
+          stderr,
+          durationMs,
+          success: exitCode === 0,
+        },
+      };
+      await hookExecutor.executeHook("onCommandComplete", hookContext);
+    } catch (error) {
+      log(`[hooks] Error executing onCommandComplete hook: ${error}`);
+      // Don't fail the command if hook fails
+    }
+  }
+
+  return result;
 }
 
 type ExecCommandSummary = {
