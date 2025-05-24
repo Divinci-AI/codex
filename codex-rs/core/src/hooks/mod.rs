@@ -70,6 +70,7 @@ pub mod context;
 pub mod executor;
 pub mod executors;
 pub mod manager;
+pub mod protocol_integration;
 pub mod registry;
 pub mod types;
 

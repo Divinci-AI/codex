@@ -418,6 +418,18 @@ impl EventProcessor {
             EventMsg::GetHistoryEntryResponse(_) => {
                 // Currently ignored in exec output.
             }
+            EventMsg::HookExecutionBegin(_) => {
+                // Hook execution events are currently ignored in exec output.
+            }
+            EventMsg::HookExecutionEnd(_) => {
+                // Hook execution events are currently ignored in exec output.
+            }
+            EventMsg::SessionStart(_) => {
+                // Session lifecycle events are currently ignored in exec output.
+            }
+            EventMsg::SessionEnd(_) => {
+                // Session lifecycle events are currently ignored in exec output.
+            }
         }
     }
 }

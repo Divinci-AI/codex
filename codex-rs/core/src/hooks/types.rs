@@ -366,6 +366,11 @@ impl HookPriority {
     pub const NORMAL: HookPriority = HookPriority(100);
     pub const LOW: HookPriority = HookPriority(200);
     pub const LOWEST: HookPriority = HookPriority(u32::MAX);
+
+    /// Get the numeric value of this priority.
+    pub fn value(&self) -> u32 {
+        self.0
+    }
 }
 
 #[cfg(test)]

@@ -356,6 +356,14 @@ pub enum EventMsg {
 
     /// Response to GetHistoryEntryRequest.
     GetHistoryEntryResponse(GetHistoryEntryResponseEvent),
+
+    /// Lifecycle hook execution events for monitoring
+    HookExecutionBegin(HookExecutionBeginEvent),
+    HookExecutionEnd(HookExecutionEndEvent),
+
+    /// Session lifecycle events
+    SessionStart(SessionStartEvent),
+    SessionEnd(SessionEndEvent),
 }
 
 // Individual event payload types matching each `EventMsg` variant.
@@ -480,6 +488,72 @@ pub struct GetHistoryEntryResponseEvent {
     /// The entry at the requested offset, if available and parseable.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub entry: Option<HistoryEntry>,
+}
+
+/// Hook execution begin event for monitoring hook execution
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct HookExecutionBeginEvent {
+    /// Unique identifier for this hook execution
+    pub execution_id: String,
+    /// Type of lifecycle event that triggered this hook
+    pub event_type: String,
+    /// Type of hook being executed (script, webhook, mcp_tool, executable)
+    pub hook_type: String,
+    /// Description of the hook being executed
+    pub hook_description: Option<String>,
+    /// Execution mode (blocking, async, fire_and_forget)
+    pub execution_mode: String,
+    /// Priority of the hook
+    pub priority: u32,
+    /// Whether this hook is required (failure stops execution)
+    pub required: bool,
+    /// Timestamp when execution began
+    pub timestamp: String,
+}
+
+/// Hook execution end event for monitoring hook execution results
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct HookExecutionEndEvent {
+    /// Unique identifier for this hook execution (matches HookExecutionBeginEvent)
+    pub execution_id: String,
+    /// Whether the hook executed successfully
+    pub success: bool,
+    /// Output from the hook execution (if any)
+    pub output: Option<String>,
+    /// Error message if the hook failed
+    pub error: Option<String>,
+    /// Duration of hook execution in milliseconds
+    pub duration_ms: u64,
+    /// Number of retry attempts made
+    pub retry_attempts: u32,
+    /// Whether the execution was cancelled
+    pub cancelled: bool,
+    /// Timestamp when execution ended
+    pub timestamp: String,
+}
+
+/// Session start event for lifecycle tracking
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SessionStartEvent {
+    /// Session identifier
+    pub session_id: String,
+    /// Model being used for this session
+    pub model: String,
+    /// Current working directory
+    pub cwd: PathBuf,
+    /// Session start timestamp
+    pub timestamp: String,
+}
+
+/// Session end event for lifecycle tracking
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SessionEndEvent {
+    /// Session identifier
+    pub session_id: String,
+    /// Total session duration in milliseconds
+    pub duration_ms: u64,
+    /// Session end timestamp
+    pub timestamp: String,
 }
 
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
