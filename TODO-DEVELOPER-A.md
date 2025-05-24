@@ -114,11 +114,11 @@ impl HookManager {
 - [x] Add hook execution events for monitoring
 - [x] Update event serialization/deserialization
 
-#### 3.2 Core Integration Points
+#### 3.2 Core Integration Points ✅ **COMPLETED**
 
-- [ ] Integrate hook manager in `codex.rs`
-- [ ] Add hook trigger points in `agent.rs`
-- [ ] Session and task lifecycle hooks
+- [x] Integrate hook manager in `codex.rs`
+- [x] Add hook trigger points in `agent.rs`
+- [x] Session and task lifecycle hooks
 
 #### 3.3 Execution Integration
 
@@ -214,7 +214,7 @@ git push origin feat/hook-execution-engine
 ### Phase 3: Event System Integration
 
 - [x] **3.1 Complete**: Protocol Extensions (3/3 tasks) ✅
-- [ ] **3.2 Complete**: Core Integration Points (0/3 tasks)
+- [x] **3.2 Complete**: Core Integration Points (3/3 tasks) ✅
 - [ ] **3.3 Complete**: Execution Integration (0/4 tasks)
 
 ### Phase 6: Testing and Validation
@@ -223,7 +223,7 @@ git push origin feat/hook-execution-engine
 - [ ] **6.2 Complete**: Integration Tests (0/3 tasks)
 - [ ] **6.3 Complete**: End-to-End Tests (0/2 tasks)
 
-**Your Total Progress: 15/30 tasks complete (50%)**
+**Your Total Progress: 18/30 tasks complete (60%)**
 
 ---
 
