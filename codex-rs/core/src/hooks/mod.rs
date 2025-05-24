@@ -68,6 +68,7 @@
 pub mod config;
 pub mod context;
 pub mod executor;
+pub mod executors;
 pub mod manager;
 pub mod registry;
 pub mod types;

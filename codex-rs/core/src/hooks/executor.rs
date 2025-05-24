@@ -524,110 +524,13 @@ impl Default for ExecutionCoordinator {
     }
 }
 
-// Placeholder implementations - these will be implemented in Phase 2.3
-pub struct ScriptExecutor;
-pub struct WebhookExecutor;
-pub struct McpToolExecutor;
+// Re-export executors from the executors module
+pub use crate::hooks::executors::{ScriptExecutor, WebhookExecutor, McpToolExecutor};
+
+// Placeholder implementation for ExecutableExecutor - will be implemented later
 pub struct ExecutableExecutor;
 
-#[async_trait]
-impl HookExecutor for ScriptExecutor {
-    async fn execute(&self, _context: &HookContext) -> HookExecutorResult {
-        // TODO: Implement in Phase 2.3
-        Err(HookError::Execution("ScriptExecutor not yet implemented".to_string()))
-    }
 
-    fn executor_type(&self) -> &'static str {
-        "script"
-    }
-
-    fn can_execute(&self, _context: &HookContext) -> bool {
-        // TODO: Implement in Phase 2.3
-        false
-    }
-
-    fn estimated_duration(&self) -> Option<Duration> {
-        Some(Duration::from_secs(5)) // Scripts typically run quickly
-    }
-
-    fn default_config(&self) -> ExecutionConfig {
-        ExecutionConfig {
-            timeout: Duration::from_secs(30),
-            mode: HookExecutionMode::Async,
-            priority: HookPriority::NORMAL,
-            required: false,
-            max_retries: 1,
-            retry_delay: Duration::from_millis(500),
-            isolated: true,
-        }
-    }
-}
-
-#[async_trait]
-impl HookExecutor for WebhookExecutor {
-    async fn execute(&self, _context: &HookContext) -> HookExecutorResult {
-        // TODO: Implement in Phase 2.3
-        Err(HookError::Execution("WebhookExecutor not yet implemented".to_string()))
-    }
-
-    fn executor_type(&self) -> &'static str {
-        "webhook"
-    }
-
-    fn can_execute(&self, _context: &HookContext) -> bool {
-        // TODO: Implement in Phase 2.3
-        false
-    }
-
-    fn estimated_duration(&self) -> Option<Duration> {
-        Some(Duration::from_secs(10)) // Network requests can be slower
-    }
-
-    fn default_config(&self) -> ExecutionConfig {
-        ExecutionConfig {
-            timeout: Duration::from_secs(60),
-            mode: HookExecutionMode::Async,
-            priority: HookPriority::NORMAL,
-            required: false,
-            max_retries: 3, // Retry network failures
-            retry_delay: Duration::from_secs(1),
-            isolated: true,
-        }
-    }
-}
-
-#[async_trait]
-impl HookExecutor for McpToolExecutor {
-    async fn execute(&self, _context: &HookContext) -> HookExecutorResult {
-        // TODO: Implement in Phase 2.3
-        Err(HookError::Execution("McpToolExecutor not yet implemented".to_string()))
-    }
-
-    fn executor_type(&self) -> &'static str {
-        "mcp_tool"
-    }
-
-    fn can_execute(&self, _context: &HookContext) -> bool {
-        // TODO: Implement in Phase 2.3
-        false
-    }
-
-    fn estimated_duration(&self) -> Option<Duration> {
-        Some(Duration::from_secs(15)) // MCP tools can be complex
-    }
-
-    fn default_config(&self) -> ExecutionConfig {
-        ExecutionConfig {
-            timeout: Duration::from_secs(120),
-            mode: HookExecutionMode::Async,
-            priority: HookPriority::NORMAL,
-            required: false,
-            max_retries: 2,
-            retry_delay: Duration::from_secs(2),
-            isolated: true,
-        }
-    }
-}
 
 #[async_trait]
 impl HookExecutor for ExecutableExecutor {
@@ -938,9 +841,9 @@ mod tests {
 
     #[test]
     fn test_executor_default_configs() {
-        let script = ScriptExecutor;
-        let webhook = WebhookExecutor;
-        let mcp = McpToolExecutor;
+        let script = ScriptExecutor::new();
+        let webhook = WebhookExecutor::new();
+        let mcp = McpToolExecutor::new();
         let executable = ExecutableExecutor;
 
         assert_eq!(script.executor_type(), "script");

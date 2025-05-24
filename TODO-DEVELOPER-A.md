@@ -99,12 +99,12 @@ impl HookManager {
 - [x] Add execution mode support (blocking/non-blocking, parallel/sequential)
 - [x] Hook execution result aggregation
 
-#### 2.3 Hook Executor Implementations
+#### 2.3 Hook Executor Implementations ✅ **COMPLETED**
 
-- [ ] Create `codex-rs/core/src/hooks/executors/mod.rs`
-- [ ] Implement `ScriptExecutor` in `executors/script.rs`
-- [ ] Implement `WebhookExecutor` in `executors/webhook.rs`
-- [ ] Implement `McpToolExecutor` in `executors/mcp.rs`
+- [x] Create `codex-rs/core/src/hooks/executors/mod.rs`
+- [x] Implement `ScriptExecutor` in `executors/script.rs`
+- [x] Implement `WebhookExecutor` in `executors/webhook.rs`
+- [x] Implement `McpToolExecutor` in `executors/mcp.rs`
 
 ### 🔄 Phase 3: Event System Integration
 
@@ -209,7 +209,7 @@ git push origin feat/hook-execution-engine
 
 - [x] **2.1 Complete**: Core Hook Manager (4/4 tasks) ✅
 - [x] **2.2 Complete**: Hook Executor Framework (4/4 tasks) ✅
-- [ ] **2.3 Complete**: Hook Executor Implementations (0/4 tasks)
+- [x] **2.3 Complete**: Hook Executor Implementations (4/4 tasks) ✅
 
 ### Phase 3: Event System Integration
 
@@ -223,7 +223,7 @@ git push origin feat/hook-execution-engine
 - [ ] **6.2 Complete**: Integration Tests (0/3 tasks)
 - [ ] **6.3 Complete**: End-to-End Tests (0/2 tasks)
 
-**Your Total Progress: 8/30 tasks complete (26.7%)**
+**Your Total Progress: 12/30 tasks complete (40%)**
 
 ---
 

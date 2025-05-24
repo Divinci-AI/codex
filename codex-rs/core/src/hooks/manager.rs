@@ -61,9 +61,9 @@ impl HookManager {
 
         // Initialize hook executors
         let mut executors: HashMap<String, Box<dyn HookExecutor>> = HashMap::new();
-        executors.insert("script".to_string(), Box::new(ScriptExecutor));
-        executors.insert("webhook".to_string(), Box::new(WebhookExecutor));
-        executors.insert("mcp_tool".to_string(), Box::new(McpToolExecutor));
+        executors.insert("script".to_string(), Box::new(ScriptExecutor::new()));
+        executors.insert("webhook".to_string(), Box::new(WebhookExecutor::new()));
+        executors.insert("mcp_tool".to_string(), Box::new(McpToolExecutor::new()));
         executors.insert("executable".to_string(), Box::new(ExecutableExecutor));
 
         Ok(Self {

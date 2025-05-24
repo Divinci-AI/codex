@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use tempfile::NamedTempFile;
 use tokio::fs;
 
-use crate::hooks::types::{HookError, LifecycleEvent};
+use crate::hooks::types::{HookError, HookType, LifecycleEvent};
 
 /// Context provided to hooks during execution.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,11 +25,21 @@ pub struct HookContext {
     pub working_directory: PathBuf,
     /// Hook execution timestamp.
     pub execution_timestamp: SystemTime,
+    /// Type of hook being executed.
+    pub hook_type: HookType,
 }
 
 impl HookContext {
     /// Create a new hook context for the given event.
     pub fn new(event: LifecycleEvent, working_directory: PathBuf) -> Self {
+        // Default hook type - will be set later
+        let default_hook_type = HookType::Script {
+            command: vec![],
+            cwd: None,
+            environment: HashMap::new(),
+            timeout: None,
+        };
+
         Self {
             event,
             environment: HashMap::new(),
@@ -37,7 +47,14 @@ impl HookContext {
             metadata: HashMap::new(),
             working_directory,
             execution_timestamp: SystemTime::now(),
+            hook_type: default_hook_type,
         }
+    }
+
+    /// Set the hook type for this context.
+    pub fn with_hook_type(mut self, hook_type: HookType) -> Self {
+        self.hook_type = hook_type;
+        self
     }
 
     /// Add an environment variable to the context.
@@ -76,21 +93,21 @@ impl HookContext {
     ) -> Result<PathBuf, HookError> {
         let temp_file = NamedTempFile::new()
             .map_err(|e| HookError::Context(format!("Failed to create temp file: {}", e)))?;
-        
+
         let temp_path = temp_file.path().to_path_buf();
-        
+
         // Write content to the temporary file
         fs::write(&temp_path, content)
             .await
             .map_err(|e| HookError::Context(format!("Failed to write temp file: {}", e)))?;
-        
+
         // Keep the temp file alive by storing it
         self.temp_files.insert(name.to_string(), temp_path.clone());
-        
+
         // Prevent the temp file from being deleted when NamedTempFile is dropped
         let _ = temp_file.into_temp_path().keep()
             .map_err(|e| HookError::Context(format!("Failed to persist temp file: {}", e)))?;
-        
+
         Ok(temp_path)
     }
 
@@ -114,18 +131,18 @@ impl HookContext {
     /// Get all environment variables as a HashMap suitable for process execution.
     pub fn get_all_env_vars(&self) -> HashMap<String, String> {
         let mut env_vars = self.environment.clone();
-        
+
         // Add standard Codex environment variables
         env_vars.insert("CODEX_EVENT_TYPE".to_string(), format!("{:?}", self.event.event_type()));
-        env_vars.insert("CODEX_TIMESTAMP".to_string(), 
+        env_vars.insert("CODEX_TIMESTAMP".to_string(),
                        self.execution_timestamp.duration_since(SystemTime::UNIX_EPOCH)
                            .unwrap_or_default().as_secs().to_string());
-        
+
         // Add task ID if available
         if let Some(task_id) = self.event.task_id() {
             env_vars.insert("CODEX_TASK_ID".to_string(), task_id.to_string());
         }
-        
+
         // Add event-specific environment variables
         match &self.event {
             LifecycleEvent::SessionStart { session_id, model, .. } => {
@@ -160,7 +177,7 @@ impl HookContext {
             }
             _ => {}
         }
-        
+
         env_vars
     }
 }
@@ -219,12 +236,12 @@ impl TemplateSubstitution {
     /// Create a new template substitution from a hook context.
     pub fn from_context(context: &HookContext) -> Self {
         let mut variables = HashMap::new();
-        
+
         // Add environment variables
         for (key, value) in &context.environment {
             variables.insert(format!("env.{}", key), value.clone());
         }
-        
+
         // Add event-specific variables
         match &context.event {
             LifecycleEvent::SessionStart { session_id, model, .. } => {
@@ -246,24 +263,24 @@ impl TemplateSubstitution {
             }
             _ => {}
         }
-        
+
         // Add temp file paths
         for (name, path) in &context.temp_files {
             variables.insert(format!("temp.{}", name), path.to_string_lossy().to_string());
         }
-        
+
         Self { variables }
     }
 
     /// Substitute template variables in a string.
     pub fn substitute(&self, template: &str) -> String {
         let mut result = template.to_string();
-        
+
         for (key, value) in &self.variables {
             let placeholder = format!("{{{}}}", key);
             result = result.replace(&placeholder, value);
         }
-        
+
         result
     }
 
@@ -286,10 +303,10 @@ mod tests {
             prompt: "test prompt".to_string(),
             timestamp: Utc::now(),
         };
-        
+
         let context = HookContext::new(event, PathBuf::from("/tmp"))
             .with_env("TEST_VAR".to_string(), "test_value".to_string());
-        
+
         assert_eq!(context.get_env("TEST_VAR"), Some(&"test_value".to_string()));
         assert_eq!(context.working_directory, PathBuf::from("/tmp"));
     }
@@ -302,12 +319,12 @@ mod tests {
             prompt: "test prompt".to_string(),
             timestamp: Utc::now(),
         };
-        
+
         let context = HookExecutionContext::new(event, PathBuf::from("/tmp"))
             .env("TEST_VAR", "test_value")
             .metadata("test_key", serde_json::json!("test_value"))
             .build();
-        
+
         assert_eq!(context.get_env("TEST_VAR"), Some(&"test_value".to_string()));
     }
 
@@ -319,10 +336,10 @@ mod tests {
             prompt: "test prompt".to_string(),
             timestamp: Utc::now(),
         };
-        
+
         let context = HookContext::new(event, PathBuf::from("/tmp"));
         let substitution = TemplateSubstitution::from_context(&context);
-        
+
         let template = "Task {task_id} started";
         let result = substitution.substitute(template);
         assert_eq!(result, "Task test_task started");

@@ -138,6 +138,25 @@ pub enum LifecycleEventType {
     ErrorOccurred,
 }
 
+impl std::fmt::Display for LifecycleEventType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LifecycleEventType::SessionStart => write!(f, "session_start"),
+            LifecycleEventType::SessionEnd => write!(f, "session_end"),
+            LifecycleEventType::TaskStart => write!(f, "task_start"),
+            LifecycleEventType::TaskComplete => write!(f, "task_complete"),
+            LifecycleEventType::ExecBefore => write!(f, "exec_before"),
+            LifecycleEventType::ExecAfter => write!(f, "exec_after"),
+            LifecycleEventType::PatchBefore => write!(f, "patch_before"),
+            LifecycleEventType::PatchAfter => write!(f, "patch_after"),
+            LifecycleEventType::McpToolBefore => write!(f, "mcp_tool_before"),
+            LifecycleEventType::McpToolAfter => write!(f, "mcp_tool_after"),
+            LifecycleEventType::AgentMessage => write!(f, "agent_message"),
+            LifecycleEventType::ErrorOccurred => write!(f, "error_occurred"),
+        }
+    }
+}
+
 impl LifecycleEvent {
     /// Get the event type for this lifecycle event.
     pub fn event_type(&self) -> LifecycleEventType {
