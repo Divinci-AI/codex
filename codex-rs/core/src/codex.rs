@@ -48,6 +48,9 @@ use crate::exec::SandboxType;
 use crate::exec::process_exec_tool_call;
 use crate::exec_env::create_env;
 use crate::flags::OPENAI_STREAM_MAX_RETRIES;
+use crate::hooks::manager::HookManager;
+use crate::hooks::types::LifecycleEvent;
+use crate::hooks::protocol_integration::{ProtocolEventConverter, ProtocolEventEmitter};
 use crate::mcp_connection_manager::McpConnectionManager;
 use crate::mcp_connection_manager::try_parse_fully_qualified_tool_name;
 use crate::mcp_tool_call::handle_mcp_tool_call;
@@ -93,6 +96,28 @@ pub struct Codex {
     next_id: AtomicU64,
     tx_sub: Sender<Submission>,
     rx_event: Receiver<Event>,
+}
+
+/// Protocol event emitter implementation for the Codex system.
+#[derive(Debug, Clone)]
+struct CodexProtocolEventEmitter {
+    tx_event: Sender<Event>,
+}
+
+impl CodexProtocolEventEmitter {
+    fn new(tx_event: Sender<Event>) -> Self {
+        Self { tx_event }
+    }
+}
+
+impl ProtocolEventEmitter for CodexProtocolEventEmitter {
+    fn emit_event(&self, event: Event) {
+        // Send the event asynchronously, ignoring errors if the receiver is closed
+        let tx = self.tx_event.clone();
+        tokio::spawn(async move {
+            let _ = tx.send(event).await;
+        });
+    }
 }
 
 impl Codex {
@@ -463,9 +488,9 @@ pub(crate) struct AgentTask {
 }
 
 impl AgentTask {
-    fn spawn(sess: Arc<Session>, sub_id: String, input: Vec<InputItem>) -> Self {
+    fn spawn(sess: Arc<Session>, sub_id: String, input: Vec<InputItem>, hook_manager: Option<Arc<HookManager>>) -> Self {
         let handle =
-            tokio::spawn(run_task(Arc::clone(&sess), sub_id.clone(), input)).abort_handle();
+            tokio::spawn(run_task(Arc::clone(&sess), sub_id.clone(), input, hook_manager)).abort_handle();
         Self {
             sess,
             sub_id,
@@ -498,6 +523,16 @@ async fn submission_loop(
 ) {
     // Generate a unique ID for the lifetime of this Codex session.
     let session_id = Uuid::new_v4();
+
+    // Initialize hook manager for lifecycle events
+    let protocol_emitter = CodexProtocolEventEmitter::new(tx_event.clone());
+    let hook_manager = match HookManager::new(config.hooks.clone()).await {
+        Ok(manager) => Some(Arc::new(manager)),
+        Err(e) => {
+            warn!("Failed to initialize hook manager: {}", e);
+            None
+        }
+    };
 
     let mut sess: Option<Arc<Session>> = None;
     // shorthand - send an event when there is no active session
@@ -639,7 +674,7 @@ async fn submission_loop(
                     approval_policy,
                     sandbox_policy,
                     shell_environment_policy: config.shell_environment_policy.clone(),
-                    cwd,
+                    cwd: cwd.clone(),
                     writable_roots,
                     mcp_connection_manager,
                     notify,
@@ -647,6 +682,34 @@ async fn submission_loop(
                     rollout: Mutex::new(rollout_recorder),
                     codex_linux_sandbox_exe: config.codex_linux_sandbox_exe.clone(),
                 }));
+
+                // Trigger session start lifecycle event
+                if let Some(ref hook_manager) = hook_manager {
+                    let session_start_event = LifecycleEvent::SessionStart {
+                        session_id: session_id.to_string(),
+                        model: model.clone(),
+                        cwd: cwd.clone(),
+                        timestamp: chrono::Utc::now(),
+                    };
+
+                    // Execute hooks asynchronously
+                    let hook_manager_clone = Arc::clone(hook_manager);
+                    tokio::spawn(async move {
+                        if let Err(e) = hook_manager_clone.trigger_event(session_start_event).await {
+                            warn!("Failed to execute session start hooks: {}", e);
+                        }
+                    });
+
+                    // Emit session start protocol event
+                    if let Some(protocol_event) = ProtocolEventConverter::convert_lifecycle_event(&LifecycleEvent::SessionStart {
+                        session_id: session_id.to_string(),
+                        model: model.clone(),
+                        cwd: cwd.clone(),
+                        timestamp: chrono::Utc::now(),
+                    }) {
+                        protocol_emitter.emit_event(protocol_event);
+                    }
+                }
 
                 // Gather history metadata for SessionConfiguredEvent.
                 let (history_log_id, history_entry_count) =
@@ -681,7 +744,7 @@ async fn submission_loop(
                 // attempt to inject input into current task
                 if let Err(items) = sess.inject_input(items) {
                     // no current task, spawn a new one
-                    let task = AgentTask::spawn(Arc::clone(sess), sub.id, items);
+                    let task = AgentTask::spawn(Arc::clone(sess), sub.id, items, hook_manager.clone());
                     sess.set_task(task);
                 }
             }
@@ -757,10 +820,36 @@ async fn submission_loop(
             }
         }
     }
+
+    // Handle session end when the submission loop exits
+    if let Some(ref hook_manager) = hook_manager {
+        if let Some(ref _session) = sess {
+            let session_start_time = std::time::SystemTime::now();
+            let session_duration = session_start_time.duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default();
+
+            let session_end_event = LifecycleEvent::SessionEnd {
+                session_id: session_id.to_string(),
+                duration: session_duration,
+                timestamp: chrono::Utc::now(),
+            };
+
+            // Execute hooks synchronously since we're shutting down
+            if let Err(e) = hook_manager.trigger_event(session_end_event.clone()).await {
+                warn!("Failed to execute session end hooks: {}", e);
+            }
+
+            // Emit session end protocol event
+            if let Some(protocol_event) = ProtocolEventConverter::convert_lifecycle_event(&session_end_event) {
+                protocol_emitter.emit_event(protocol_event);
+            }
+        }
+    }
+
     debug!("Agent loop exited");
 }
 
-async fn run_task(sess: Arc<Session>, sub_id: String, input: Vec<InputItem>) {
+async fn run_task(sess: Arc<Session>, sub_id: String, input: Vec<InputItem>, hook_manager: Option<Arc<HookManager>>) {
     if input.is_empty() {
         return;
     }
@@ -770,6 +859,33 @@ async fn run_task(sess: Arc<Session>, sub_id: String, input: Vec<InputItem>) {
     };
     if sess.tx_event.send(event).await.is_err() {
         return;
+    }
+
+    // Trigger task start lifecycle event
+    let task_start_time = std::time::Instant::now();
+    if let Some(ref hook_manager) = hook_manager {
+        let prompt = input.iter()
+            .filter_map(|item| match item {
+                InputItem::Text { text } => Some(text.clone()),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        let task_start_event = LifecycleEvent::TaskStart {
+            task_id: sub_id.clone(),
+            session_id: "current".to_string(), // TODO: Get actual session ID
+            prompt,
+            timestamp: chrono::Utc::now(),
+        };
+
+        // Execute hooks asynchronously
+        let hook_manager_clone = Arc::clone(hook_manager);
+        tokio::spawn(async move {
+            if let Err(e) = hook_manager_clone.trigger_event(task_start_event).await {
+                warn!("Failed to execute task start hooks: {}", e);
+            }
+        });
     }
 
     let mut pending_response_input: Vec<ResponseInputItem> = vec![ResponseInputItem::from(input)];
@@ -865,6 +981,28 @@ async fn run_task(sess: Arc<Session>, sub_id: String, input: Vec<InputItem>) {
             }
             Err(e) => {
                 info!("Turn error: {e:#}");
+
+                // Trigger task failure lifecycle event
+                if let Some(ref hook_manager) = hook_manager {
+                    let task_duration = task_start_time.elapsed();
+                    let task_complete_event = LifecycleEvent::TaskComplete {
+                        task_id: sub_id.clone(),
+                        session_id: "current".to_string(), // TODO: Get actual session ID
+                        success: false, // Task failed
+                        output: Some(format!("Task failed: {}", e)),
+                        duration: task_duration,
+                        timestamp: chrono::Utc::now(),
+                    };
+
+                    // Execute hooks asynchronously
+                    let hook_manager_clone = Arc::clone(hook_manager);
+                    tokio::spawn(async move {
+                        if let Err(e) = hook_manager_clone.trigger_event(task_complete_event).await {
+                            warn!("Failed to execute task failure hooks: {}", e);
+                        }
+                    });
+                }
+
                 let event = Event {
                     id: sub_id.clone(),
                     msg: EventMsg::Error(ErrorEvent {
@@ -877,6 +1015,28 @@ async fn run_task(sess: Arc<Session>, sub_id: String, input: Vec<InputItem>) {
         }
     }
     sess.remove_task(&sub_id);
+
+    // Trigger task completion lifecycle event
+    if let Some(ref hook_manager) = hook_manager {
+        let task_duration = task_start_time.elapsed();
+        let task_complete_event = LifecycleEvent::TaskComplete {
+            task_id: sub_id.clone(),
+            session_id: "current".to_string(), // TODO: Get actual session ID
+            success: true, // Task completed successfully if we reach here
+            output: last_agent_message.clone(),
+            duration: task_duration,
+            timestamp: chrono::Utc::now(),
+        };
+
+        // Execute hooks asynchronously
+        let hook_manager_clone = Arc::clone(hook_manager);
+        tokio::spawn(async move {
+            if let Err(e) = hook_manager_clone.trigger_event(task_complete_event).await {
+                warn!("Failed to execute task complete hooks: {}", e);
+            }
+        });
+    }
+
     let event = Event {
         id: sub_id,
         msg: EventMsg::TaskComplete(TaskCompleteEvent { last_agent_message }),
