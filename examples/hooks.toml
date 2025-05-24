@@ -1,0 +1,200 @@
+# Codex Lifecycle Hooks Configuration
+# This file defines hooks that are executed during various Codex lifecycle events
+
+[hooks]
+# Enable or disable the entire hook system
+enabled = true
+
+# Default timeout for hook execution (in seconds)
+timeout_seconds = 30
+
+# Enable debug logging for hook execution
+debug = false
+
+# =============================================================================
+# SESSION HOOKS
+# =============================================================================
+
+# Log session start
+[[hooks.task]]
+event = "session_start"
+type = "script"
+command = ["./examples/hooks/session-logging/log-session-start.sh"]
+timeout = 10
+description = "Log when a Codex session starts"
+
+# Log session end
+[[hooks.task]]
+event = "session_end"
+type = "script"
+command = ["./examples/hooks/session-logging/log-session-end.sh"]
+timeout = 10
+description = "Log when a Codex session ends"
+
+# Backup files at session start
+[[hooks.task]]
+event = "session_start"
+type = "script"
+command = ["./examples/hooks/security/backup-files.sh"]
+timeout = 60
+priority = 1
+description = "Create backup of important files before session starts"
+
+# =============================================================================
+# COMMAND HOOKS
+# =============================================================================
+
+# Security scan for commands
+[[hooks.task]]
+event = "command_start"
+type = "script"
+command = ["python3", "./examples/hooks/security/scan-commands.py"]
+timeout = 5
+description = "Scan commands for security issues"
+
+# =============================================================================
+# ANALYTICS HOOKS
+# =============================================================================
+
+# Track usage analytics for all events
+[[hooks.task]]
+event = "session_start"
+type = "script"
+command = ["node", "./examples/hooks/analytics/track-usage.js"]
+timeout = 5
+description = "Track session start analytics"
+
+[[hooks.task]]
+event = "session_end"
+type = "script"
+command = ["node", "./examples/hooks/analytics/track-usage.js"]
+timeout = 5
+description = "Track session end analytics"
+
+[[hooks.task]]
+event = "command_start"
+type = "script"
+command = ["node", "./examples/hooks/analytics/track-usage.js"]
+timeout = 5
+description = "Track command analytics"
+
+[[hooks.task]]
+event = "task_start"
+type = "script"
+command = ["node", "./examples/hooks/analytics/track-usage.js"]
+timeout = 5
+description = "Track task analytics"
+
+[[hooks.task]]
+event = "error"
+type = "script"
+command = ["node", "./examples/hooks/analytics/track-usage.js"]
+timeout = 5
+description = "Track error analytics"
+
+# Performance monitoring
+[[hooks.task]]
+event = "session_start"
+type = "script"
+command = ["python3", "./examples/hooks/analytics/performance-metrics.py"]
+timeout = 10
+description = "Start performance monitoring"
+
+[[hooks.task]]
+event = "session_end"
+type = "script"
+command = ["python3", "./examples/hooks/analytics/performance-metrics.py"]
+timeout = 10
+description = "End performance monitoring"
+
+# =============================================================================
+# NOTIFICATION HOOKS (DISABLED BY DEFAULT)
+# =============================================================================
+
+# Slack notifications (uncomment and configure to enable)
+# [[hooks.task]]
+# event = "session_start"
+# type = "script"
+# command = ["./examples/hooks/notifications/slack-webhook.sh"]
+# environment = { SLACK_WEBHOOK_URL = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL" }
+# timeout = 10
+# description = "Send session start notification to Slack"
+
+# [[hooks.task]]
+# event = "error"
+# type = "script"
+# command = ["./examples/hooks/notifications/slack-webhook.sh"]
+# environment = { SLACK_WEBHOOK_URL = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL" }
+# timeout = 10
+# description = "Send error notification to Slack"
+
+# Email notifications (uncomment and configure to enable)
+# [[hooks.task]]
+# event = "session_start"
+# type = "script"
+# command = ["python3", "./examples/hooks/notifications/email-notification.py"]
+# environment = { 
+#   SMTP_USERNAME = "your-email@gmail.com",
+#   SMTP_PASSWORD = "your-app-password",
+#   EMAIL_TO = "recipient@example.com"
+# }
+# timeout = 15
+# description = "Send session start email notification"
+
+# =============================================================================
+# WEBHOOK EXAMPLES (DISABLED BY DEFAULT)
+# =============================================================================
+
+# Generic webhook for session events
+# [[hooks.task]]
+# event = "session_start"
+# type = "webhook"
+# url = "https://api.example.com/codex/webhook"
+# method = "POST"
+# headers = { 
+#   "Authorization" = "Bearer YOUR_API_TOKEN",
+#   "Content-Type" = "application/json"
+# }
+# timeout = 10
+# retry_count = 3
+# description = "Send session start event to external API"
+
+# =============================================================================
+# CONDITIONAL HOOKS (EXAMPLES)
+# =============================================================================
+
+# Only run for specific models
+# [[hooks.task]]
+# event = "session_start"
+# type = "script"
+# command = ["./scripts/gpt4-specific-setup.sh"]
+# conditions = { model = "gpt-4" }
+# description = "Special setup for GPT-4 sessions"
+
+# Only run for commands containing sudo
+# [[hooks.task]]
+# event = "command_start"
+# type = "script"
+# command = ["./scripts/sudo-alert.sh"]
+# conditions = { command_contains = "sudo" }
+# description = "Alert when sudo commands are executed"
+
+# =============================================================================
+# MCP TOOL HOOKS (EXAMPLES)
+# =============================================================================
+
+# Use MCP tools for file operations
+# [[hooks.task]]
+# event = "session_end"
+# type = "mcp_tool"
+# server = "filesystem"
+# tool = "create_session_summary"
+# timeout = 30
+# description = "Create session summary using MCP filesystem tool"
+
+# =============================================================================
+# CUSTOM HOOKS
+# =============================================================================
+
+# Add your custom hooks here
+# Follow the patterns above and refer to the documentation at docs/hooks.md

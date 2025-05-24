@@ -102,6 +102,11 @@ const cli = meow(
 
     --reasoning <effort>      Set the reasoning effort level (low, medium, high) (default: high)
 
+  Hooks options
+    --enable-hooks            Enable lifecycle hooks
+    --disable-hooks           Disable lifecycle hooks
+    --hooks-config <path>     Path to hooks configuration file
+
   Dangerous options
     --dangerously-auto-approve-everything
                                Skip all confirmation prompts and execute commands without
@@ -203,6 +208,20 @@ const cli = meow(
         type: "boolean",
         description:
           "Disable server-side response storage (sends full conversation context with every request)",
+      },
+
+      // Hooks configuration
+      enableHooks: {
+        type: "boolean",
+        description: "Enable lifecycle hooks",
+      },
+      disableHooks: {
+        type: "boolean",
+        description: "Disable lifecycle hooks",
+      },
+      hooksConfig: {
+        type: "string",
+        description: "Path to hooks configuration file",
       },
 
       // Experimental mode where whole directory is loaded in context and model is requested
@@ -397,6 +416,17 @@ const disableResponseStorage = flagPresent
   ? Boolean(cli.flags.disableResponseStorage) // value user actually passed
   : (config.disableResponseStorage ?? false); // fall back to YAML, default to false
 
+// Handle hooks configuration from CLI flags
+let hooksConfig = config.hooks;
+if (cli.flags.enableHooks) {
+  hooksConfig = { ...hooksConfig, enabled: true };
+} else if (cli.flags.disableHooks) {
+  hooksConfig = { ...hooksConfig, enabled: false };
+}
+if (cli.flags.hooksConfig) {
+  hooksConfig = { ...hooksConfig, configPath: cli.flags.hooksConfig };
+}
+
 config = {
   apiKey,
   ...config,
@@ -407,6 +437,7 @@ config = {
   flexMode: cli.flags.flexMode || (config.flexMode ?? false),
   provider,
   disableResponseStorage,
+  hooks: hooksConfig,
 };
 
 // Check for updates after loading config. This is important because we write state file in

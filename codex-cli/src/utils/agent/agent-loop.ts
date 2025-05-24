@@ -36,6 +36,17 @@ import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import OpenAI, { APIConnectionTimeoutError, AzureOpenAI } from "openai";
 import os from "os";
+import {
+  emitLifecycleEvent,
+  createSessionStartEvent,
+  createSessionEndEvent,
+  createTaskStartEvent,
+  createTaskEndEvent,
+  createCommandStartEvent,
+  createCommandEndEvent,
+  createErrorEvent,
+  displayHookStatus
+} from "../hooks/events.js";
 
 // Wait time before retrying after rate limit errors (ms).
 const RATE_LIMIT_RETRY_WAIT_MS = parseInt(
@@ -251,6 +262,9 @@ export class AgentLoop {
     }
     this.terminated = true;
 
+    // Emit session end event
+    this.emitSessionEndEvent();
+
     this.hardAbort.abort();
 
     this.cancel();
@@ -354,6 +368,9 @@ export class AgentLoop {
     setCurrentModel(this.model);
 
     this.hardAbort = new AbortController();
+
+    // Emit session start event
+    this.emitSessionStartEvent();
 
     this.hardAbort.signal.addEventListener(
       "abort",
@@ -1593,6 +1610,115 @@ export class AgentLoop {
       emitItem(item as ResponseItem);
     }
     return turnInput;
+  }
+
+  /**
+   * Emit session start event
+   */
+  private async emitSessionStartEvent(): Promise<void> {
+    try {
+      const event = createSessionStartEvent(
+        this.sessionId,
+        this.model,
+        this.provider
+      );
+      const result = await emitLifecycleEvent(event, this.config);
+      if (result) {
+        displayHookStatus(result);
+      }
+    } catch (error) {
+      log(`[hooks] Failed to emit session start event: ${error}`);
+    }
+  }
+
+  /**
+   * Emit session end event
+   */
+  private async emitSessionEndEvent(): Promise<void> {
+    try {
+      const event = createSessionEndEvent(this.sessionId);
+      const result = await emitLifecycleEvent(event, this.config);
+      if (result) {
+        displayHookStatus(result);
+      }
+    } catch (error) {
+      log(`[hooks] Failed to emit session end event: ${error}`);
+    }
+  }
+
+  /**
+   * Emit task start event
+   */
+  private async emitTaskStartEvent(taskId: string, prompt: string): Promise<void> {
+    try {
+      const event = createTaskStartEvent(this.sessionId, taskId, prompt);
+      const result = await emitLifecycleEvent(event, this.config);
+      if (result) {
+        displayHookStatus(result);
+      }
+    } catch (error) {
+      log(`[hooks] Failed to emit task start event: ${error}`);
+    }
+  }
+
+  /**
+   * Emit task end event
+   */
+  private async emitTaskEndEvent(taskId: string, success: boolean, duration?: number): Promise<void> {
+    try {
+      const event = createTaskEndEvent(this.sessionId, taskId, success, duration);
+      const result = await emitLifecycleEvent(event, this.config);
+      if (result) {
+        displayHookStatus(result);
+      }
+    } catch (error) {
+      log(`[hooks] Failed to emit task end event: ${error}`);
+    }
+  }
+
+  /**
+   * Emit command start event
+   */
+  private async emitCommandStartEvent(command: string[], workdir?: string): Promise<void> {
+    try {
+      const event = createCommandStartEvent(this.sessionId, command, workdir);
+      const result = await emitLifecycleEvent(event, this.config);
+      if (result) {
+        displayHookStatus(result);
+      }
+    } catch (error) {
+      log(`[hooks] Failed to emit command start event: ${error}`);
+    }
+  }
+
+  /**
+   * Emit command end event
+   */
+  private async emitCommandEndEvent(command: string[], exitCode: number, duration?: number): Promise<void> {
+    try {
+      const event = createCommandEndEvent(this.sessionId, command, exitCode, duration);
+      const result = await emitLifecycleEvent(event, this.config);
+      if (result) {
+        displayHookStatus(result);
+      }
+    } catch (error) {
+      log(`[hooks] Failed to emit command end event: ${error}`);
+    }
+  }
+
+  /**
+   * Emit error event
+   */
+  private async emitErrorEvent(error: string, context?: string): Promise<void> {
+    try {
+      const event = createErrorEvent(this.sessionId, error, context);
+      const result = await emitLifecycleEvent(event, this.config);
+      if (result) {
+        displayHookStatus(result);
+      }
+    } catch (error) {
+      log(`[hooks] Failed to emit error event: ${error}`);
+    }
   }
 }
 
