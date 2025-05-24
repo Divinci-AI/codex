@@ -10,3 +10,6 @@ pub use mcp::McpToolExecutor;
 
 // Re-export the ExecutableExecutor from the executor module
 pub use crate::hooks::executor::ExecutableExecutor;
+
+#[cfg(test)]
+mod tests;
