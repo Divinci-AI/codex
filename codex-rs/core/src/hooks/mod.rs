@@ -77,6 +77,9 @@ pub mod types;
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+mod integration_tests;
+
 // Re-export commonly used types
 pub use config::{HookConfig, HooksConfig};
 pub use context::{HookContext, HookExecutionContext};
