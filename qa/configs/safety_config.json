@@ -1,0 +1,350 @@
+{
+  "container_isolation": {
+    "enabled": true,
+    "docker_security_options": [
+      "--security-opt=no-new-privileges",
+      "--security-opt=apparmor:docker-default",
+      "--cap-drop=ALL",
+      "--cap-add=NET_BIND_SERVICE"
+    ],
+    "resource_limits": {
+      "memory": "2g",
+      "cpus": "1.0",
+      "pids": 100,
+      "ulimits": {
+        "nofile": 1024,
+        "nproc": 64
+      }
+    },
+    "network_isolation": {
+      "custom_network": true,
+      "network_name": "qa-isolated",
+      "subnet": "172.20.0.0/16",
+      "no_internet_access": false,
+      "allowed_external_domains": [
+        "api.openai.com",
+        "registry.npmjs.org",
+        "pypi.org"
+      ]
+    }
+  },
+  "network_restrictions": {
+    "allowed_domains": ["localhost", "127.0.0.1", "0.0.0.0", "api.openai.com"],
+    "blocked_domains": ["malicious.com", "spam.net", "phishing.org"],
+    "allowed_ports": [80, 443, 8080, 8081, 8082, 3000, 5432, 6379, 9090],
+    "blocked_ports": [22, 23, 25, 53, 135, 139, 445, 1433, 3389],
+    "rate_limiting": {
+      "max_requests_per_minute": 100,
+      "max_requests_per_hour": 1000,
+      "burst_limit": 10
+    },
+    "request_validation": {
+      "check_ssl_certificates": false,
+      "follow_redirects": false,
+      "max_redirect_count": 3,
+      "timeout": 30
+    }
+  },
+  "file_system_restrictions": {
+    "read_only_paths": [
+      "/etc",
+      "/usr",
+      "/bin",
+      "/sbin",
+      "/root",
+      "/boot",
+      "/sys",
+      "/proc"
+    ],
+    "writable_paths": [
+      "/tmp",
+      "/workspace/qa/tmp",
+      "/workspace/qa/logs",
+      "/workspace/qa/reports",
+      "/workspace/qa/test-data"
+    ],
+    "forbidden_paths": [
+      "/etc/passwd",
+      "/etc/shadow",
+      "/etc/sudoers",
+      "/root/.ssh",
+      "/home/*/.ssh"
+    ],
+    "file_operations": {
+      "max_file_size": "100MB",
+      "allowed_extensions": [
+        ".txt",
+        ".md",
+        ".json",
+        ".yaml",
+        ".yml",
+        ".toml",
+        ".py",
+        ".js",
+        ".ts",
+        ".sh",
+        ".bash",
+        ".log",
+        ".csv",
+        ".html",
+        ".xml"
+      ],
+      "forbidden_extensions": [
+        ".exe",
+        ".bat",
+        ".cmd",
+        ".scr",
+        ".vbs",
+        ".jar",
+        ".war",
+        ".ear",
+        ".so",
+        ".dll"
+      ],
+      "scan_for_malware": true,
+      "quarantine_suspicious_files": true
+    }
+  },
+  "execution_limits": {
+    "max_execution_time": 600,
+    "max_memory_usage": "2GB",
+    "max_cpu_usage": 80,
+    "max_disk_usage": "1GB",
+    "max_open_files": 1024,
+    "max_processes": 64,
+    "max_threads": 128,
+    "kill_on_timeout": true,
+    "cleanup_on_exit": true
+  },
+  "command_restrictions": {
+    "allowed_commands": [
+      "ls",
+      "cat",
+      "grep",
+      "find",
+      "head",
+      "tail",
+      "wc",
+      "sort",
+      "uniq",
+      "echo",
+      "pwd",
+      "whoami",
+      "id",
+      "date",
+      "uptime",
+      "codex",
+      "npm",
+      "node",
+      "python",
+      "python3",
+      "pip",
+      "pip3",
+      "git",
+      "docker",
+      "curl",
+      "wget",
+      "jq",
+      "yq",
+      "ps",
+      "top",
+      "htop",
+      "free",
+      "df",
+      "du"
+    ],
+    "forbidden_commands": [
+      "rm",
+      "rmdir",
+      "mv",
+      "cp",
+      "chmod",
+      "chown",
+      "chgrp",
+      "sudo",
+      "su",
+      "passwd",
+      "useradd",
+      "userdel",
+      "usermod",
+      "kill",
+      "killall",
+      "pkill",
+      "pgrep",
+      "reboot",
+      "shutdown",
+      "halt",
+      "poweroff",
+      "dd",
+      "fdisk",
+      "mkfs",
+      "fsck",
+      "mount",
+      "umount",
+      "iptables",
+      "ufw",
+      "firewall-cmd",
+      "crontab",
+      "at",
+      "batch",
+      "nc",
+      "netcat",
+      "nmap",
+      "telnet",
+      "ssh",
+      "scp",
+      "rsync"
+    ],
+    "command_validation": {
+      "check_command_injection": true,
+      "sanitize_arguments": true,
+      "log_all_commands": true,
+      "require_approval_for_dangerous": true
+    }
+  },
+  "human_oversight": {
+    "enabled": true,
+    "require_approval_for": [
+      "file_deletion",
+      "file_modification_outside_workspace",
+      "network_requests_to_external_domains",
+      "system_commands",
+      "container_operations",
+      "user_management",
+      "permission_changes",
+      "service_management"
+    ],
+    "auto_approve_safe_operations": true,
+    "approval_methods": [
+      "console_prompt",
+      "web_interface",
+      "slack_notification"
+    ],
+    "approval_timeout": 300,
+    "default_action_on_timeout": "deny",
+    "escalation": {
+      "enabled": true,
+      "escalate_after_denials": 3,
+      "escalation_contacts": [
+        "security-team@company.com",
+        "dev-team@company.com"
+      ]
+    }
+  },
+  "input_validation": {
+    "prompt_injection_protection": {
+      "enabled": true,
+      "scan_for_injection_patterns": true,
+      "block_suspicious_prompts": true,
+      "sanitize_user_input": true,
+      "log_injection_attempts": true
+    },
+    "content_filtering": {
+      "enabled": true,
+      "filter_profanity": false,
+      "filter_personal_info": true,
+      "filter_credentials": true,
+      "filter_malicious_code": true
+    },
+    "input_limits": {
+      "max_prompt_length": 10000,
+      "max_file_upload_size": "10MB",
+      "max_batch_size": 100,
+      "rate_limit_per_user": 1000
+    }
+  },
+  "monitoring_and_logging": {
+    "comprehensive_logging": {
+      "enabled": true,
+      "log_level": "INFO",
+      "log_all_operations": true,
+      "log_all_network_requests": true,
+      "log_all_file_operations": true,
+      "log_all_command_executions": true,
+      "include_stack_traces": true,
+      "include_environment_info": true
+    },
+    "real_time_monitoring": {
+      "enabled": true,
+      "monitor_resource_usage": true,
+      "monitor_network_activity": true,
+      "monitor_file_changes": true,
+      "monitor_process_activity": true,
+      "alert_thresholds": {
+        "cpu_usage": 90,
+        "memory_usage": 90,
+        "disk_usage": 85,
+        "network_requests_per_minute": 200,
+        "failed_operations_per_minute": 10
+      }
+    },
+    "anomaly_detection": {
+      "enabled": true,
+      "detect_unusual_patterns": true,
+      "detect_privilege_escalation": true,
+      "detect_data_exfiltration": true,
+      "detect_malicious_behavior": true,
+      "machine_learning_models": false,
+      "baseline_learning_period": 7
+    },
+    "audit_trail": {
+      "enabled": true,
+      "immutable_logs": true,
+      "log_retention_days": 90,
+      "log_compression": true,
+      "log_encryption": true,
+      "external_log_shipping": false
+    }
+  },
+  "incident_response": {
+    "automated_response": {
+      "enabled": true,
+      "auto_quarantine_threats": true,
+      "auto_block_malicious_ips": true,
+      "auto_kill_suspicious_processes": true,
+      "auto_backup_before_changes": true
+    },
+    "notification_channels": ["console_alert", "log_file", "email", "slack"],
+    "severity_levels": {
+      "low": {
+        "actions": ["log"],
+        "notification": false
+      },
+      "medium": {
+        "actions": ["log", "alert"],
+        "notification": true
+      },
+      "high": {
+        "actions": ["log", "alert", "quarantine"],
+        "notification": true,
+        "escalate": true
+      },
+      "critical": {
+        "actions": ["log", "alert", "quarantine", "shutdown"],
+        "notification": true,
+        "escalate": true,
+        "require_human_intervention": true
+      }
+    }
+  },
+  "compliance_and_governance": {
+    "data_protection": {
+      "encrypt_sensitive_data": true,
+      "mask_personal_information": true,
+      "secure_data_transmission": true,
+      "data_retention_policies": true
+    },
+    "access_control": {
+      "role_based_access": true,
+      "principle_of_least_privilege": true,
+      "regular_access_reviews": true,
+      "multi_factor_authentication": false
+    },
+    "audit_requirements": {
+      "maintain_audit_logs": true,
+      "regular_security_assessments": true,
+      "compliance_reporting": true,
+      "third_party_audits": false
+    }
+  }
+}

@@ -1,0 +1,259 @@
+{
+  "orchestrator": {
+    "model": "gpt-4o",
+    "max_tokens": 4000,
+    "temperature": 0.1,
+    "timeout": 300,
+    "retry_attempts": 3,
+    "system_message": "You are the QA Orchestrator for the Codex lifecycle hooks system. Your role is to coordinate multiple specialized agents to perform comprehensive testing and validation. Always prioritize safety and follow security protocols.",
+    "capabilities": [
+      "workflow_coordination",
+      "task_delegation",
+      "result_aggregation",
+      "error_handling",
+      "safety_monitoring"
+    ]
+  },
+  "agents": {
+    "file_surfer": {
+      "enabled": true,
+      "model": "gpt-4o-mini",
+      "max_tokens": 2000,
+      "temperature": 0.0,
+      "timeout": 120,
+      "system_message": "You are the FileSurfer agent responsible for file operations and configuration validation. You can read, analyze, and validate configuration files, but you cannot modify or delete files without explicit permission.",
+      "capabilities": [
+        "file_reading",
+        "configuration_validation",
+        "syntax_checking",
+        "permission_verification",
+        "file_structure_analysis"
+      ],
+      "restrictions": {
+        "max_file_size": "10MB",
+        "allowed_extensions": [
+          ".toml",
+          ".json",
+          ".yaml",
+          ".yml",
+          ".sh",
+          ".py",
+          ".js",
+          ".ts",
+          ".md",
+          ".txt"
+        ],
+        "forbidden_paths": ["/etc", "/usr", "/bin", "/sbin", "/root"],
+        "read_only_mode": true
+      }
+    },
+    "web_surfer": {
+      "enabled": true,
+      "model": "gpt-4o-mini",
+      "max_tokens": 2000,
+      "temperature": 0.0,
+      "timeout": 180,
+      "system_message": "You are the WebSurfer agent responsible for testing web endpoints and webhook functionality. You can make HTTP requests and test web interfaces, but you must respect rate limits and security boundaries.",
+      "capabilities": [
+        "http_requests",
+        "webhook_testing",
+        "endpoint_validation",
+        "response_analysis",
+        "performance_monitoring"
+      ],
+      "restrictions": {
+        "allowed_domains": ["localhost", "127.0.0.1", "0.0.0.0"],
+        "allowed_ports": [8080, 8081, 8082, 3000, 9090],
+        "max_requests_per_minute": 60,
+        "timeout": 30,
+        "follow_redirects": false,
+        "verify_ssl": false
+      }
+    },
+    "coder": {
+      "enabled": true,
+      "model": "gpt-4o",
+      "max_tokens": 3000,
+      "temperature": 0.1,
+      "timeout": 240,
+      "system_message": "You are the Coder agent responsible for generating test scripts and analyzing code. You can create test cases, analyze code quality, and generate automation scripts, but you cannot execute code directly.",
+      "capabilities": [
+        "test_generation",
+        "code_analysis",
+        "script_creation",
+        "quality_assessment",
+        "documentation_generation"
+      ],
+      "restrictions": {
+        "supported_languages": [
+          "python",
+          "bash",
+          "javascript",
+          "typescript",
+          "rust"
+        ],
+        "max_script_length": 1000,
+        "no_execution": true,
+        "safe_patterns_only": true
+      }
+    },
+    "terminal": {
+      "enabled": true,
+      "model": "gpt-4o-mini",
+      "max_tokens": 2000,
+      "temperature": 0.0,
+      "timeout": 300,
+      "system_message": "You are the ComputerTerminal agent responsible for CLI automation and command execution. You can run commands and scripts, but you must follow strict safety protocols and never execute dangerous operations.",
+      "capabilities": [
+        "command_execution",
+        "cli_automation",
+        "process_monitoring",
+        "log_analysis",
+        "system_inspection"
+      ],
+      "restrictions": {
+        "sandbox_mode": true,
+        "allowed_commands": [
+          "ls",
+          "cat",
+          "grep",
+          "find",
+          "head",
+          "tail",
+          "wc",
+          "sort",
+          "uniq",
+          "codex",
+          "npm",
+          "node",
+          "python",
+          "python3",
+          "pip",
+          "git",
+          "docker",
+          "curl",
+          "wget",
+          "jq",
+          "echo",
+          "pwd",
+          "whoami"
+        ],
+        "forbidden_commands": [
+          "rm",
+          "rmdir",
+          "mv",
+          "cp",
+          "chmod",
+          "chown",
+          "sudo",
+          "su",
+          "kill",
+          "killall",
+          "pkill",
+          "reboot",
+          "shutdown",
+          "halt",
+          "dd",
+          "fdisk",
+          "mkfs",
+          "mount",
+          "umount"
+        ],
+        "max_execution_time": 60,
+        "working_directory": "/workspace/qa/tmp",
+        "environment_isolation": true
+      }
+    }
+  },
+  "workflows": {
+    "hooks_validation": {
+      "enabled": true,
+      "timeout": 600,
+      "parallel_execution": false,
+      "required_agents": ["file_surfer", "coder"],
+      "test_scenarios": [
+        "syntax_validation",
+        "parameter_validation",
+        "condition_testing",
+        "permission_checking"
+      ]
+    },
+    "e2e_testing": {
+      "enabled": true,
+      "timeout": 900,
+      "parallel_execution": true,
+      "required_agents": ["file_surfer", "web_surfer", "terminal"],
+      "test_scenarios": [
+        "hook_execution",
+        "error_handling",
+        "integration_testing",
+        "regression_testing"
+      ]
+    },
+    "performance_benchmarks": {
+      "enabled": true,
+      "timeout": 1200,
+      "parallel_execution": true,
+      "required_agents": ["terminal", "coder"],
+      "test_scenarios": [
+        "execution_overhead",
+        "concurrent_hooks",
+        "memory_usage",
+        "cpu_usage"
+      ]
+    },
+    "security_tests": {
+      "enabled": true,
+      "timeout": 800,
+      "parallel_execution": false,
+      "required_agents": ["file_surfer", "web_surfer", "coder", "terminal"],
+      "test_scenarios": [
+        "input_validation",
+        "permission_boundaries",
+        "injection_prevention",
+        "access_control"
+      ]
+    }
+  },
+  "safety": {
+    "human_oversight": {
+      "enabled": true,
+      "require_approval_for": [
+        "file_deletion",
+        "network_requests_external",
+        "system_commands",
+        "container_operations"
+      ],
+      "auto_approve_safe_operations": true,
+      "approval_timeout": 300
+    },
+    "resource_limits": {
+      "max_execution_time": 600,
+      "max_memory_usage": "2GB",
+      "max_cpu_usage": 80,
+      "max_disk_usage": "1GB",
+      "max_network_requests": 1000
+    },
+    "monitoring": {
+      "log_all_operations": true,
+      "track_resource_usage": true,
+      "alert_on_anomalies": true,
+      "save_execution_history": true
+    }
+  },
+  "reporting": {
+    "formats": ["json", "html", "markdown"],
+    "include_logs": true,
+    "include_metrics": true,
+    "include_screenshots": false,
+    "retention_days": 30,
+    "auto_cleanup": true
+  },
+  "integration": {
+    "codex_cli_path": "/usr/local/bin/codex",
+    "hooks_config_path": "/workspace/hooks.toml",
+    "test_data_path": "/workspace/qa/test-data",
+    "reports_path": "/workspace/qa/reports",
+    "logs_path": "/workspace/qa/logs"
+  }
+}

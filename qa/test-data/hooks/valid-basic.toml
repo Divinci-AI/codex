@@ -1,0 +1,24 @@
+# Valid basic hooks configuration for testing
+# This file contains a simple, valid hooks configuration
+
+[hooks.session_start]
+type = "script"
+script = "/workspace/qa/test-data/scripts/session-start.sh"
+conditions = ["event_type == 'session_start'"]
+description = "Hook executed when a session starts"
+
+[hooks.task_complete]
+type = "webhook"
+url = "http://localhost:8081/webhook/task-complete"
+method = "POST"
+conditions = ["event_type == 'task_complete'", "success == true"]
+headers = { "Content-Type" = "application/json" }
+description = "Webhook called when a task completes successfully"
+
+[hooks.error_notification]
+type = "webhook"
+url = "http://localhost:8081/webhook/error"
+method = "POST"
+conditions = ["event_type == 'error'"]
+headers = { "Content-Type" = "application/json", "X-Priority" = "high" }
+description = "Webhook for error notifications"

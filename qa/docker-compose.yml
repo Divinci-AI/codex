@@ -1,0 +1,227 @@
+version: '3.8'
+
+services:
+  # Main QA orchestrator service
+  qa-orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: codex-qa-orchestrator
+    environment:
+      - QA_ROLE=orchestrator
+      - QA_AGENT_ID=orchestrator-001
+    env_file:
+      - .env
+    volumes:
+      - ../:/workspace:ro  # Mount entire project as read-only
+      - ./logs:/workspace/qa/logs
+      - ./reports:/workspace/qa/reports
+      - ./test-data:/workspace/qa/test-data
+      - ./tmp:/workspace/qa/tmp
+      - /var/run/docker.sock:/var/run/docker.sock  # For container management
+    networks:
+      - qa-network
+    ports:
+      - "8080:8080"  # Webhook testing port
+    depends_on:
+      - qa-database
+      - qa-webhook-server
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # FileSurfer agent for file operations
+  qa-file-surfer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: codex-qa-file-surfer
+    environment:
+      - QA_ROLE=file_surfer
+      - QA_AGENT_ID=file-surfer-001
+    env_file:
+      - .env
+    volumes:
+      - ../:/workspace:ro
+      - ./logs:/workspace/qa/logs
+      - ./test-data:/workspace/qa/test-data
+      - ./tmp:/workspace/qa/tmp
+    networks:
+      - qa-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+
+  # WebSurfer agent for web testing
+  qa-web-surfer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: codex-qa-web-surfer
+    environment:
+      - QA_ROLE=web_surfer
+      - QA_AGENT_ID=web-surfer-001
+      - PLAYWRIGHT_BROWSER=chromium
+      - PLAYWRIGHT_HEADLESS=true
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/workspace/qa/logs
+      - ./test-data:/workspace/qa/test-data
+      - ./tmp:/workspace/qa/tmp
+    networks:
+      - qa-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+          cpus: '0.75'
+
+  # Coder agent for code generation and analysis
+  qa-coder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: codex-qa-coder
+    environment:
+      - QA_ROLE=coder
+      - QA_AGENT_ID=coder-001
+    env_file:
+      - .env
+    volumes:
+      - ../:/workspace:ro
+      - ./logs:/workspace/qa/logs
+      - ./test-data:/workspace/qa/test-data
+      - ./tmp:/workspace/qa/tmp
+    networks:
+      - qa-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+
+  # ComputerTerminal agent for CLI automation
+  qa-terminal:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: codex-qa-terminal
+    environment:
+      - QA_ROLE=terminal
+      - QA_AGENT_ID=terminal-001
+    env_file:
+      - .env
+    volumes:
+      - ../:/workspace:ro
+      - ./logs:/workspace/qa/logs
+      - ./test-data:/workspace/qa/test-data
+      - ./tmp:/workspace/qa/tmp
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - qa-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+
+  # Test database for QA operations
+  qa-database:
+    image: postgres:15-alpine
+    container_name: codex-qa-database
+    environment:
+      - POSTGRES_DB=qa_test
+      - POSTGRES_USER=qa_user
+      - POSTGRES_PASSWORD=qa_password
+    volumes:
+      - qa-db-data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - qa-network
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  # Mock webhook server for testing
+  qa-webhook-server:
+    image: nginx:alpine
+    container_name: codex-qa-webhook-server
+    volumes:
+      - ./configs/nginx.conf:/etc/nginx/nginx.conf
+      - ./test-data/webhooks:/usr/share/nginx/html
+    networks:
+      - qa-network
+    ports:
+      - "8081:80"
+    restart: unless-stopped
+
+  # Redis for agent communication and caching
+  qa-redis:
+    image: redis:7-alpine
+    container_name: codex-qa-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - qa-redis-data:/data
+    networks:
+      - qa-network
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  # Monitoring and metrics collection
+  qa-prometheus:
+    image: prom/prometheus:latest
+    container_name: codex-qa-prometheus
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
+      - qa-prometheus-data:/prometheus
+    networks:
+      - qa-network
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  # Grafana for metrics visualization
+  qa-grafana:
+    image: grafana/grafana:latest
+    container_name: codex-qa-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=qa_admin
+    volumes:
+      - qa-grafana-data:/var/lib/grafana
+      - ./configs/grafana:/etc/grafana/provisioning
+    networks:
+      - qa-network
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+networks:
+  qa-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  qa-db-data:
+    driver: local
+  qa-redis-data:
+    driver: local
+  qa-prometheus-data:
+    driver: local
+  qa-grafana-data:
+    driver: local

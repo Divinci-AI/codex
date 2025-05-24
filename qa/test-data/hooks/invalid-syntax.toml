@@ -1,0 +1,18 @@
+# Invalid hooks configuration with syntax errors
+# This file contains intentional syntax errors for testing
+
+[hooks.broken_hook
+type = "script"  # Missing closing bracket
+script = "/workspace/qa/test-data/scripts/test.sh"
+conditions = ["event_type == 'test'"]
+
+[hooks.another_hook]
+type = webhook"  # Missing equals sign
+url = "http://localhost:8081/test"
+method = "POST"
+conditions = [event_type == 'test']  # Missing quotes
+
+[hooks.third_hook]
+type = "script"
+script = "/workspace/qa/test-data/scripts/test.sh"
+conditions = ["event_type == 'test'"  # Missing closing bracket

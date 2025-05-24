@@ -1,0 +1,92 @@
+# Magentic-One and AutoGen dependencies
+autogen-agentchat>=0.4.0
+autogen-ext[magentic-one,openai]>=0.4.0
+
+# OpenAI API client
+openai>=1.50.0
+
+# Web automation and browser control
+playwright>=1.40.0
+selenium>=4.15.0
+
+# HTTP requests and web testing
+requests>=2.31.0
+httpx>=0.25.0
+aiohttp>=3.9.0
+
+# File and data processing
+pyyaml>=6.0.1
+toml>=0.10.2
+jsonschema>=4.20.0
+pathlib2>=2.3.7
+
+# Testing and validation
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-mock>=3.12.0
+pytest-cov>=4.1.0
+
+# Performance monitoring
+psutil>=5.9.0
+memory-profiler>=0.61.0
+py-spy>=0.3.14
+
+# Logging and monitoring
+structlog>=23.2.0
+rich>=13.7.0
+colorama>=0.4.6
+
+# Security and safety
+cryptography>=41.0.0
+pydantic>=2.5.0
+validators>=0.22.0
+
+# Container and Docker integration
+docker>=6.1.0
+docker-compose>=1.29.0
+
+# Async and concurrency
+asyncio-throttle>=1.0.2
+aiofiles>=23.2.1
+
+# Data analysis and reporting
+pandas>=2.1.0
+matplotlib>=3.8.0
+seaborn>=0.13.0
+jinja2>=3.1.0
+
+# CLI and utilities
+click>=8.1.0
+typer>=0.9.0
+tqdm>=4.66.0
+
+# Development and debugging
+ipython>=8.17.0
+ipdb>=0.13.13
+black>=23.11.0
+flake8>=6.1.0
+mypy>=1.7.0
+
+# Environment and configuration
+python-dotenv>=1.0.0
+configparser>=6.0.0
+
+# Network and security testing
+nmap-python>=1.5.4
+scapy>=2.5.0
+
+# Database testing (optional)
+sqlalchemy>=2.0.0
+sqlite3  # Built-in, but listed for clarity
+
+# Additional utilities
+dateutil>=2.8.2
+pytz>=2023.3
+uuid>=1.30
+hashlib  # Built-in
+json  # Built-in
+os  # Built-in
+sys  # Built-in
+subprocess  # Built-in
+threading  # Built-in
+multiprocessing  # Built-in
