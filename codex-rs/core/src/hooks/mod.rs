@@ -74,6 +74,9 @@ pub mod protocol_integration;
 pub mod registry;
 pub mod types;
 
+#[cfg(test)]
+mod tests;
+
 // Re-export commonly used types
 pub use config::{HookConfig, HooksConfig};
 pub use context::{HookContext, HookExecutionContext};

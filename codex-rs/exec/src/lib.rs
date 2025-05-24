@@ -95,7 +95,7 @@ pub async fn run_main(cli: Cli, codex_linux_sandbox_exe: Option<PathBuf>) -> any
         .with_writer(std::io::stderr)
         .try_init();
 
-    let (codex_wrapper, event, ctrl_c) = codex_wrapper::init_codex(config).await?;
+    let (codex_wrapper, event, ctrl_c) = codex_wrapper::init_codex(config.clone()).await?;
     let codex = Arc::new(codex_wrapper);
     info!("Codex initialized with event: {event:?}");
 
@@ -164,7 +164,7 @@ pub async fn run_main(cli: Cli, codex_linux_sandbox_exe: Option<PathBuf>) -> any
     info!("Sent prompt with event ID: {initial_prompt_task_id}");
 
     // Run the loop until the task is complete.
-    let mut event_processor = EventProcessor::create_with_ansi(stdout_with_ansi);
+    let mut event_processor = EventProcessor::create_with_ansi(stdout_with_ansi, &config).await;
     while let Some(event) = rx.recv().await {
         let (is_last_event, last_assistant_message) = match &event.msg {
             EventMsg::TaskComplete(TaskCompleteEvent { last_agent_message }) => {

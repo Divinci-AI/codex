@@ -1,6 +1,8 @@
 use chrono::Utc;
 use codex_common::elapsed::format_elapsed;
 use codex_core::config::Config;
+use codex_core::hooks::manager::HookManager;
+use codex_core::hooks::types::LifecycleEvent;
 use codex_core::protocol::AgentMessageEvent;
 use codex_core::protocol::BackgroundEventEvent;
 use codex_core::protocol::ErrorEvent;
@@ -33,6 +35,9 @@ pub(crate) struct EventProcessor {
     /// received.
     call_id_to_tool_call: HashMap<String, McpToolCallBegin>,
 
+    /// Hook manager for lifecycle events
+    hook_manager: Option<std::sync::Arc<HookManager>>,
+
     // To ensure that --color=never is respected, ANSI escapes _must_ be added
     // using .style() with one of these fields. If you need a new style, add a
     // new field here.
@@ -45,32 +50,43 @@ pub(crate) struct EventProcessor {
 }
 
 impl EventProcessor {
-    pub(crate) fn create_with_ansi(with_ansi: bool) -> Self {
+    pub(crate) async fn create_with_ansi(with_ansi: bool, config: &Config) -> Self {
         let call_id_to_command = HashMap::new();
         let call_id_to_patch = HashMap::new();
         let call_id_to_tool_call = HashMap::new();
+
+        // Initialize hook manager
+        let hook_manager = match HookManager::new(config.hooks.clone()).await {
+            Ok(manager) => Some(std::sync::Arc::new(manager)),
+            Err(e) => {
+                eprintln!("Warning: Failed to initialize hook manager: {}", e);
+                None
+            }
+        };
 
         if with_ansi {
             Self {
                 call_id_to_command,
                 call_id_to_patch,
+                call_id_to_tool_call,
+                hook_manager,
                 bold: Style::new().bold(),
                 dimmed: Style::new().dimmed(),
                 magenta: Style::new().magenta(),
                 red: Style::new().red(),
                 green: Style::new().green(),
-                call_id_to_tool_call,
             }
         } else {
             Self {
                 call_id_to_command,
                 call_id_to_patch,
+                call_id_to_tool_call,
+                hook_manager,
                 bold: Style::new(),
                 dimmed: Style::new(),
                 magenta: Style::new(),
                 red: Style::new(),
                 green: Style::new(),
-                call_id_to_tool_call,
             }
         }
     }
@@ -160,6 +176,26 @@ impl EventProcessor {
                         start_time: Instant::now(),
                     },
                 );
+
+                // Trigger ExecBefore lifecycle hook
+                if let Some(ref hook_manager) = self.hook_manager {
+                    let exec_before_event = LifecycleEvent::ExecBefore {
+                        call_id: call_id.clone(),
+                        task_id: "exec".to_string(), // TODO: Get actual task ID
+                        command: command.clone(),
+                        cwd: cwd.clone(),
+                        timestamp: chrono::Utc::now(),
+                    };
+
+                    // Execute hooks asynchronously
+                    let hook_manager_clone = std::sync::Arc::clone(hook_manager);
+                    tokio::spawn(async move {
+                        if let Err(e) = hook_manager_clone.trigger_event(exec_before_event).await {
+                            eprintln!("Warning: Failed to execute ExecBefore hooks: {}", e);
+                        }
+                    });
+                }
+
                 ts_println!(
                     "{} {} in {}",
                     "exec".style(self.magenta),
@@ -174,17 +210,42 @@ impl EventProcessor {
                 exit_code,
             }) => {
                 let exec_command = self.call_id_to_command.remove(&call_id);
-                let (duration, call) = if let Some(ExecCommandBegin {
+                let (duration, call, _command_for_hook) = if let Some(ExecCommandBegin {
                     command,
                     start_time,
                 }) = exec_command
                 {
+                    let duration_value = start_time.elapsed();
+
+                    // Trigger ExecAfter lifecycle hook
+                    if let Some(ref hook_manager) = self.hook_manager {
+                        let exec_after_event = LifecycleEvent::ExecAfter {
+                            call_id: call_id.clone(),
+                            task_id: "exec".to_string(), // TODO: Get actual task ID
+                            command: command.clone(),
+                            exit_code: exit_code,
+                            stdout: stdout.clone(),
+                            stderr: stderr.clone(),
+                            duration: duration_value,
+                            timestamp: chrono::Utc::now(),
+                        };
+
+                        // Execute hooks asynchronously
+                        let hook_manager_clone = std::sync::Arc::clone(hook_manager);
+                        tokio::spawn(async move {
+                            if let Err(e) = hook_manager_clone.trigger_event(exec_after_event).await {
+                                eprintln!("Warning: Failed to execute ExecAfter hooks: {}", e);
+                            }
+                        });
+                    }
+
                     (
                         format!(" in {}", format_elapsed(start_time)),
                         format!("{}", escape_command(&command).style(self.bold)),
+                        Some(command),
                     )
                 } else {
-                    ("".to_string(), format!("exec('{call_id}')"))
+                    ("".to_string(), format!("exec('{call_id}')"), None)
                 };
 
                 let output = if exit_code == 0 { stdout } else { stderr };
@@ -236,6 +297,26 @@ impl EventProcessor {
                     },
                 );
 
+                // Trigger McpToolBefore lifecycle hook
+                if let Some(ref hook_manager) = self.hook_manager {
+                    let mcp_before_event = LifecycleEvent::McpToolBefore {
+                        call_id: call_id.clone(),
+                        task_id: "mcp_tool".to_string(), // TODO: Get actual task ID
+                        server: server.clone(),
+                        tool: tool.clone(),
+                        arguments: arguments.clone(),
+                        timestamp: chrono::Utc::now(),
+                    };
+
+                    // Execute hooks asynchronously
+                    let hook_manager_clone = std::sync::Arc::clone(hook_manager);
+                    tokio::spawn(async move {
+                        if let Err(e) = hook_manager_clone.trigger_event(mcp_before_event).await {
+                            eprintln!("Warning: Failed to execute McpToolBefore hooks: {}", e);
+                        }
+                    });
+                }
+
                 ts_println!(
                     "{} {}",
                     "tool".style(self.magenta),
@@ -249,6 +330,45 @@ impl EventProcessor {
             }) => {
                 // Retrieve start time and invocation for duration calculation and labeling.
                 let info = self.call_id_to_tool_call.remove(&call_id);
+
+                // Trigger McpToolAfter lifecycle hook
+                if let Some(ref hook_manager) = self.hook_manager {
+                    let duration_value = info.as_ref()
+                        .map(|i| i.start_time.elapsed())
+                        .unwrap_or_default();
+
+                    // Extract server and tool from the invocation (simplified approach)
+                    let (server, tool) = if let Some(ref info) = info {
+                        // Parse server.tool from invocation like "server.tool(args)"
+                        let parts: Vec<&str> = info.invocation.split('(').next().unwrap_or("").split('.').collect();
+                        if parts.len() >= 2 {
+                            (parts[0].to_string(), parts[1].to_string())
+                        } else {
+                            ("unknown".to_string(), "unknown".to_string())
+                        }
+                    } else {
+                        ("unknown".to_string(), "unknown".to_string())
+                    };
+
+                    let mcp_after_event = LifecycleEvent::McpToolAfter {
+                        call_id: call_id.clone(),
+                        task_id: "mcp_tool".to_string(), // TODO: Get actual task ID
+                        server,
+                        tool,
+                        success: success,
+                        result: result.as_ref().map(|r| serde_json::to_value(r).unwrap_or(serde_json::Value::Null)),
+                        duration: duration_value,
+                        timestamp: chrono::Utc::now(),
+                    };
+
+                    // Execute hooks asynchronously
+                    let hook_manager_clone = std::sync::Arc::clone(hook_manager);
+                    tokio::spawn(async move {
+                        if let Err(e) = hook_manager_clone.trigger_event(mcp_after_event).await {
+                            eprintln!("Warning: Failed to execute McpToolAfter hooks: {}", e);
+                        }
+                    });
+                }
 
                 let (duration, invocation) = if let Some(McpToolCallBegin {
                     invocation,
@@ -291,6 +411,36 @@ impl EventProcessor {
                         auto_approved,
                     },
                 );
+
+                // Trigger PatchBefore lifecycle hook
+                if let Some(ref hook_manager) = self.hook_manager {
+                    // Convert FileChange to String descriptions
+                    let changes_descriptions: std::collections::HashMap<std::path::PathBuf, String> = changes.iter()
+                        .map(|(path, change)| {
+                            let description = match change {
+                                codex_core::protocol::FileChange::Add { .. } => "add".to_string(),
+                                codex_core::protocol::FileChange::Delete => "delete".to_string(),
+                                codex_core::protocol::FileChange::Update { .. } => "update".to_string(),
+                            };
+                            (path.clone(), description)
+                        })
+                        .collect();
+
+                    let patch_before_event = LifecycleEvent::PatchBefore {
+                        call_id: call_id.clone(),
+                        task_id: "patch".to_string(), // TODO: Get actual task ID
+                        changes: changes_descriptions,
+                        timestamp: chrono::Utc::now(),
+                    };
+
+                    // Execute hooks asynchronously
+                    let hook_manager_clone = std::sync::Arc::clone(hook_manager);
+                    tokio::spawn(async move {
+                        if let Err(e) = hook_manager_clone.trigger_event(patch_before_event).await {
+                            eprintln!("Warning: Failed to execute PatchBefore hooks: {}", e);
+                        }
+                    });
+                }
 
                 ts_println!(
                     "{} auto_approved={}:",
@@ -362,6 +512,35 @@ impl EventProcessor {
                 success,
             }) => {
                 let patch_begin = self.call_id_to_patch.remove(&call_id);
+
+                // Trigger PatchAfter lifecycle hook
+                if let Some(ref hook_manager) = self.hook_manager {
+                    // Extract applied files from stdout (this is a simplified approach)
+                    let applied_files: Vec<std::path::PathBuf> = if success {
+                        // In a real implementation, we'd parse the actual applied files
+                        // For now, we'll use a placeholder
+                        vec![std::path::PathBuf::from("patch_applied")]
+                    } else {
+                        vec![]
+                    };
+
+                    let patch_after_event = LifecycleEvent::PatchAfter {
+                        call_id: call_id.clone(),
+                        task_id: "patch".to_string(), // TODO: Get actual task ID
+                        applied_files,
+                        success: success,
+                        duration: patch_begin.as_ref().map(|p| p.start_time.elapsed()).unwrap_or_default(),
+                        timestamp: chrono::Utc::now(),
+                    };
+
+                    // Execute hooks asynchronously
+                    let hook_manager_clone = std::sync::Arc::clone(hook_manager);
+                    tokio::spawn(async move {
+                        if let Err(e) = hook_manager_clone.trigger_event(patch_after_event).await {
+                            eprintln!("Warning: Failed to execute PatchAfter hooks: {}", e);
+                        }
+                    });
+                }
 
                 // Compute duration and summary label similar to exec commands.
                 let (duration, label) = if let Some(PatchApplyBegin {
