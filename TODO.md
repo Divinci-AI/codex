@@ -202,10 +202,43 @@ Implementation of a comprehensive lifecycle hooks system for Codex that allows e
 
 ### 6.3 End-to-End Tests
 
-- [ ] Test complete hook workflows
-- [ ] Test hook integration with existing Codex functionality
-- [ ] Test performance impact of hooks
-- [ ] Test security and sandboxing
+- [ ] **Complete Hook Workflows Testing**
+
+  - [ ] Test session lifecycle hooks (start to end)
+  - [ ] Test task lifecycle hooks (creation to completion)
+  - [ ] Test execution hooks (command before/after)
+  - [ ] Test patch hooks (patch before/after)
+  - [ ] Test MCP tool hooks (tool before/after)
+  - [ ] Test error handling hooks
+
+- [ ] **Integration Testing with Existing Codex**
+
+  - [ ] Test hooks with real Codex sessions
+  - [ ] Test hooks with existing MCP servers
+  - [ ] Test hooks with patch application workflows
+  - [ ] Test hooks with CLI agent loops
+  - [ ] Test hooks with configuration profiles
+
+- [ ] **Cross-Platform E2E Testing**
+
+  - [ ] Test hooks on Linux environments
+  - [ ] Test hooks on macOS environments
+  - [ ] Test hooks on Windows environments
+  - [ ] Test hooks in Docker containers
+
+- [ ] **Real-World Scenario Testing**
+
+  - [ ] Test with actual webhook endpoints
+  - [ ] Test with real script executions
+  - [ ] Test with production-like configurations
+  - [ ] Test with multiple concurrent sessions
+  - [ ] Test with large file operations
+
+- [ ] **Performance and Security E2E**
+  - [ ] Test performance impact of hooks
+  - [ ] Test security and sandboxing
+  - [ ] Test resource usage under load
+  - [ ] Test timeout and cancellation scenarios
 
 ### 6.4 Performance and Security Testing
 
@@ -262,11 +295,40 @@ Implementation of a comprehensive lifecycle hooks system for Codex that allows e
 
 ### 8.3 QA Workflow Integration
 
-- [ ] Create automated test suite generation workflows
-- [ ] Implement hook configuration validation automation
-- [ ] Set up end-to-end testing scenarios with Magentic-One
-- [ ] Create performance benchmarking automation
-- [ ] Implement regression testing workflows
+- [ ] **Automated Test Suite Generation**
+
+  - [ ] Generate E2E test scenarios automatically
+  - [ ] Create test data and configurations
+  - [ ] Generate test scripts for different hook types
+  - [ ] Create test environment setup automation
+
+- [ ] **Hook Configuration Validation Automation**
+
+  - [ ] Automated TOML syntax validation
+  - [ ] Semantic validation of hook configurations
+  - [ ] Condition expression testing
+  - [ ] Cross-reference validation with available tools
+
+- [ ] **End-to-End Testing Scenarios with Magentic-One**
+
+  - [ ] Automated full lifecycle testing workflows
+  - [ ] Multi-agent coordination for complex scenarios
+  - [ ] Real-world simulation testing
+  - [ ] Failure scenario testing and recovery
+  - [ ] Integration testing with external services
+
+- [ ] **Performance Benchmarking Automation**
+
+  - [ ] Automated performance test execution
+  - [ ] Resource usage monitoring and reporting
+  - [ ] Comparative analysis with baselines
+  - [ ] Performance regression detection
+
+- [ ] **Regression Testing Workflows**
+  - [ ] Continuous integration testing
+  - [ ] Automated regression detection
+  - [ ] Historical comparison and trending
+  - [ ] Automated issue reporting and alerting
 
 ### 8.4 Safety and Monitoring
 
@@ -275,6 +337,34 @@ Implementation of a comprehensive lifecycle hooks system for Codex that allows e
 - [ ] Create human oversight protocols
 - [ ] Implement access restrictions and safeguards
 - [ ] Set up prompt injection protection
+
+---
+
+## Phase 9: Comprehensive E2E Testing
+
+### 9.1 Playwright E2E Test Suite
+
+- [ ] Set up Playwright testing framework for Codex CLI
+- [ ] Create E2E test scenarios for hook workflows
+- [ ] Test CLI interactions with hooks enabled
+- [ ] Test configuration file loading and validation
+- [ ] Test hook execution status reporting in CLI
+
+### 9.2 Real-World Integration Testing
+
+- [ ] Test with actual external webhook services
+- [ ] Test with real MCP servers and tools
+- [ ] Test with production-like Codex configurations
+- [ ] Test with multiple concurrent Codex sessions
+- [ ] Test with large-scale file operations and patches
+
+### 9.3 Cross-Environment E2E Validation
+
+- [ ] Test hooks in Docker containerized environments
+- [ ] Test hooks across different operating systems
+- [ ] Test hooks with different shell environments
+- [ ] Test hooks with various permission configurations
+- [ ] Test hooks with network restrictions and firewalls
 
 ---
 
@@ -314,8 +404,9 @@ Implementation of a comprehensive lifecycle hooks system for Codex that allows e
 - [ ] **Phase 6 Complete**: Testing and Validation (0/4 sections)
 - [ ] **Phase 7 Complete**: Advanced Features (0/3 sections)
 - [ ] **Phase 8 Complete**: Magentic-One QA Integration (0/4 sections)
+- [ ] **Phase 9 Complete**: Comprehensive E2E Testing (0/3 sections)
 
-**Overall Progress: 3/25 sections complete (12%)**
+**Overall Progress: 3/28 sections complete (10.7%)**
 
 ---
 
@@ -330,6 +421,7 @@ To enable parallel development, the remaining work has been split into two indep
 - Phase 2: Hook Execution Engine
 - Phase 3: Event System Integration
 - Phase 6: Testing and Validation
+- Phase 9: Comprehensive E2E Testing (Backend portions)
 
 #### 🟢 **Developer B: Client Integration & Documentation** (Frontend/Docs Focus)
 
@@ -337,6 +429,7 @@ To enable parallel development, the remaining work has been split into two indep
 - Phase 5: Configuration and Documentation
 - Phase 7: Advanced Features
 - Phase 8: Magentic-One QA Integration
+- Phase 9: Comprehensive E2E Testing (Frontend portions)
 
 ### 📋 Task Assignment Details
 
@@ -595,7 +688,8 @@ git push origin feat/hook-client-integration
 
 - [ ] **Phase 2 Complete**: Hook Execution Engine (0/3 sections)
 - [ ] **Phase 3 Complete**: Event System Integration (0/3 sections)
-- [ ] **Phase 6 Complete**: Testing and Validation (0/3 sections)
+- [ ] **Phase 6 Complete**: Testing and Validation (0/4 sections)
+- [ ] **Phase 9 Complete**: E2E Testing - Backend (0/2 sections)
 
 ### Developer B Progress
 
@@ -603,10 +697,11 @@ git push origin feat/hook-client-integration
 - [ ] **Phase 5 Complete**: Configuration and Documentation (0/3 sections)
 - [ ] **Phase 7 Complete**: Advanced Features (0/3 sections)
 - [ ] **Phase 8 Complete**: Magentic-One QA Integration (0/4 sections)
+- [ ] **Phase 9 Complete**: E2E Testing - Frontend (0/1 section)
 
 ### Overall Project Progress
 
 - [x] **Phase 1 Complete**: Core Infrastructure (3/3 sections) ✅
-- [ ] **Phases 2-8 Complete**: Parallel Development (0/18 sections)
+- [ ] **Phases 2-9 Complete**: Parallel Development (0/22 sections)
 
-**Total Progress: 3/21 sections complete (14.3%)**
+**Total Progress: 3/25 sections complete (12%)**
