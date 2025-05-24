@@ -32,6 +32,13 @@
   - [Full configuration example](#full-configuration-example)
   - [Custom instructions](#custom-instructions)
   - [Environment variables setup](#environment-variables-setup)
+- [Lifecycle Hooks](#lifecycle-hooks)
+  - [Quick Start with Hooks](#quick-start-with-hooks)
+  - [Hook Events](#hook-events)
+  - [Example Use Cases](#example-use-cases)
+  - [Hook Examples](#hook-examples)
+  - [Configuration Example](#configuration-example)
+  - [Documentation](#documentation)
 - [FAQ](#faq)
 - [Zero data retention (ZDR) usage](#zero-data-retention-zdr-usage)
 - [Codex open source fund](#codex-open-source-fund)
@@ -476,6 +483,98 @@ export OPENROUTER_API_KEY="your-openrouter-key-here"
 
 # Similarly for other providers
 ```
+
+---
+
+## Lifecycle Hooks
+
+Codex supports lifecycle hooks that allow you to execute custom scripts, webhooks, or tools at specific points during Codex operations. This enables powerful automation, monitoring, and integration capabilities.
+
+### Quick Start with Hooks
+
+1. **Enable hooks** in your configuration:
+   ```json
+   {
+     "hooks": {
+       "enabled": true,
+       "configPath": "./hooks.toml"
+     }
+   }
+   ```
+
+2. **Copy the example configuration**:
+   ```bash
+   cp examples/hooks.toml ./hooks.toml
+   ```
+
+3. **Try it out**:
+   ```bash
+   codex "Hello, hooks!"
+   # Check ~/.codex/session.log for logged events
+   ```
+
+### Hook Events
+
+Hooks can be triggered by these lifecycle events:
+- **session_start/session_end** - When Codex sessions begin/end
+- **task_start/task_end** - When tasks begin/complete
+- **command_start/command_end** - Before/after command execution
+- **error** - When errors occur
+
+### Example Use Cases
+
+| Hook Type | Example | Description |
+|-----------|---------|-------------|
+| **Logging** | Session activity logs | Track all Codex activity for audit trails |
+| **Security** | Command scanning | Scan commands for dangerous patterns |
+| **Notifications** | Slack/email alerts | Send notifications to team channels |
+| **Backup** | File protection | Automatically backup files before sessions |
+| **Analytics** | Usage tracking | Collect metrics on Codex usage patterns |
+
+### Hook Examples
+
+The `examples/hooks/` directory contains ready-to-use examples:
+
+```bash
+examples/hooks/
+├── session-logging/     # Log session activity
+├── notifications/       # Slack and email notifications
+├── security/           # Security scanning and backups
+├── analytics/          # Usage and performance tracking
+└── templates/          # Hook script templates
+```
+
+### Configuration Example
+
+```toml
+[hooks]
+enabled = true
+
+# Log session starts
+[[hooks.task]]
+event = "session_start"
+type = "script"
+command = ["./examples/hooks/session-logging/log-session-start.sh"]
+
+# Security scan commands
+[[hooks.task]]
+event = "command_start"
+type = "script"
+command = ["python3", "./examples/hooks/security/scan-commands.py"]
+
+# Send Slack notifications for errors
+[[hooks.task]]
+event = "error"
+type = "webhook"
+url = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+method = "POST"
+```
+
+### Documentation
+
+- **Complete Guide**: [docs/hooks.md](docs/hooks.md)
+- **Examples**: [examples/hooks/README.md](examples/hooks/README.md)
+- **Templates**: [examples/hooks/templates/](examples/hooks/templates/)
 
 ---
 

@@ -170,6 +170,8 @@ export type StoredConfig = {
    * terminal output.
    */
   fileOpener?: FileOpenerScheme;
+  /** Lifecycle hooks configuration */
+  hooks?: HookConfig;
 };
 
 // Minimal config written on first run.  An *empty* model string ensures that
@@ -182,6 +184,13 @@ const EMPTY_CONFIG_JSON = JSON.stringify(EMPTY_STORED_CONFIG, null, 2) + "\n";
 
 export type MemoryConfig = {
   enabled: boolean;
+};
+
+// Hook configuration types
+export type HookConfig = {
+  enabled: boolean;
+  configPath?: string;
+  timeout?: number;
 };
 
 // Represents full runtime config, including loaded instructions.
@@ -215,6 +224,8 @@ export type AppConfig = {
     };
   };
   fileOpener?: FileOpenerScheme;
+  /** Lifecycle hooks configuration */
+  hooks?: HookConfig;
 };
 
 // Formatting (quiet mode-only).
@@ -523,6 +534,15 @@ export const loadConfig = (
   // Merge default providers with user configured providers in the config.
   config.providers = { ...providers, ...storedConfig.providers };
 
+  // Add hooks configuration if provided
+  if (storedConfig.hooks !== undefined) {
+    config.hooks = {
+      enabled: storedConfig.hooks.enabled ?? false,
+      configPath: storedConfig.hooks.configPath,
+      timeout: storedConfig.hooks.timeout,
+    };
+  }
+
   return config;
 };
 
@@ -580,6 +600,15 @@ export const saveConfig = (
             maxLines: config.tools.shell.maxLines,
           }
         : undefined,
+    };
+  }
+
+  // Add hooks settings if they exist
+  if (config.hooks) {
+    configToSave.hooks = {
+      enabled: config.hooks.enabled,
+      configPath: config.hooks.configPath,
+      timeout: config.hooks.timeout,
     };
   }
 
