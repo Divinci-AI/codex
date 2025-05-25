@@ -11,6 +11,7 @@ use tokio::time::timeout;
 use crate::hooks::config::HooksConfig;
 use crate::hooks::context::{HookContext, HookExecutionContext};
 use crate::hooks::executor::{HookExecutor, ScriptExecutor, WebhookExecutor, McpToolExecutor, ExecutableExecutor};
+use crate::hooks::executors::{DatabaseExecutor, MessageQueueExecutor, FileSystemExecutor, CustomPluginExecutor};
 use crate::hooks::registry::HookRegistry;
 use crate::hooks::types::{HookError, HookResult, HookType, LifecycleEvent, HookExecutionMode};
 
@@ -76,6 +77,10 @@ impl HookManager {
         executors.insert("webhook".to_string(), Box::new(WebhookExecutor::new()));
         executors.insert("mcp_tool".to_string(), Box::new(McpToolExecutor::new()));
         executors.insert("executable".to_string(), Box::new(ExecutableExecutor));
+        executors.insert("database".to_string(), Box::new(DatabaseExecutor::new()));
+        executors.insert("message_queue".to_string(), Box::new(MessageQueueExecutor::new()));
+        executors.insert("filesystem".to_string(), Box::new(FileSystemExecutor::new()));
+        executors.insert("custom_plugin".to_string(), Box::new(CustomPluginExecutor::new()));
 
         Ok(Self {
             registry,

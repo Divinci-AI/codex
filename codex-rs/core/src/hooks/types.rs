@@ -245,6 +245,39 @@ pub enum HookType {
         environment: HashMap<String, String>,
         timeout: Option<Duration>,
     },
+    /// Execute a database operation.
+    Database {
+        connection_string: String,
+        query: String,
+        parameters: HashMap<String, serde_json::Value>,
+        timeout: Option<Duration>,
+        database_type: DatabaseType,
+    },
+    /// Send a message to a message queue.
+    MessageQueue {
+        queue_url: String,
+        message: String,
+        queue_type: MessageQueueType,
+        timeout: Option<Duration>,
+        routing_key: Option<String>,
+        headers: HashMap<String, String>,
+    },
+    /// Perform file system operations.
+    FileSystem {
+        operation: FileSystemOperation,
+        path: PathBuf,
+        target_path: Option<PathBuf>,
+        content: Option<String>,
+        timeout: Option<Duration>,
+        permissions: Option<u32>,
+    },
+    /// Execute a custom plugin.
+    CustomPlugin {
+        plugin_name: String,
+        plugin_config: HashMap<String, serde_json::Value>,
+        timeout: Option<Duration>,
+        plugin_path: Option<PathBuf>,
+    },
 }
 
 /// HTTP methods for webhook hooks.
@@ -256,6 +289,64 @@ pub enum HttpMethod {
     Put,
     Patch,
     Delete,
+}
+
+/// Supported database types for database hooks.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum DatabaseType {
+    /// PostgreSQL database.
+    Postgresql,
+    /// MySQL database.
+    Mysql,
+    /// SQLite database.
+    Sqlite,
+    /// MongoDB database.
+    MongoDB,
+    /// Redis database.
+    Redis,
+}
+
+/// Supported message queue types.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum MessageQueueType {
+    /// RabbitMQ message queue.
+    RabbitMQ,
+    /// Apache Kafka.
+    Kafka,
+    /// Redis Pub/Sub.
+    RedisPubSub,
+    /// AWS SQS.
+    AwsSqs,
+    /// Google Cloud Pub/Sub.
+    GcpPubSub,
+    /// Azure Service Bus.
+    AzureServiceBus,
+}
+
+/// File system operations for file system hooks.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum FileSystemOperation {
+    /// Create a file or directory.
+    Create,
+    /// Read file contents.
+    Read,
+    /// Write content to a file.
+    Write,
+    /// Append content to a file.
+    Append,
+    /// Delete a file or directory.
+    Delete,
+    /// Copy a file or directory.
+    Copy,
+    /// Move/rename a file or directory.
+    Move,
+    /// Change file permissions.
+    Chmod,
+    /// Watch for file system changes.
+    Watch,
 }
 
 /// Hook execution modes.
