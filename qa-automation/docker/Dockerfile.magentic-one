@@ -1,0 +1,81 @@
+# Dockerfile for Magentic-One QA Automation
+# Provides a secure, isolated environment for running AI agents
+
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Create non-root user for security
+RUN groupadd -r qauser && useradd -r -g qauser qauser
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    nodejs \
+    npm \
+    wget \
+    gnupg \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Install Playwright dependencies for web automation
+RUN apt-get update && apt-get install -y \
+    libnss3 \
+    libnspr4 \
+    libatk-bridge2.0-0 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libxss1 \
+    libasound2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy requirements and install Python dependencies
+COPY qa-automation/requirements.txt /workspace/qa-automation/requirements.txt
+RUN pip install --no-cache-dir -r qa-automation/requirements.txt
+
+# Install Playwright browsers
+RUN playwright install chromium
+
+# Copy QA automation code
+COPY qa-automation/ /workspace/qa-automation/
+COPY examples/ /workspace/examples/
+COPY docs/ /workspace/docs/
+COPY codex-cli/ /workspace/codex-cli/
+
+# Install Node.js dependencies for Codex CLI
+WORKDIR /workspace/codex-cli
+RUN pnpm install
+
+# Build Codex CLI
+RUN pnpm run build
+
+# Create necessary directories with proper permissions
+RUN mkdir -p /workspace/qa-automation/{logs,output,reports,test-data} && \
+    chown -R qauser:qauser /workspace
+
+# Switch to non-root user
+USER qauser
+
+# Set working directory back to workspace root
+WORKDIR /workspace
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import autogen_agentchat; print('OK')" || exit 1
+
+# Default command
+CMD ["python", "qa-automation/magentic-one/qa_orchestrator.py"]

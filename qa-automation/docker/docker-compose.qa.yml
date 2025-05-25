@@ -1,0 +1,171 @@
+# Docker Compose configuration for Magentic-One QA Environment
+version: '3.8'
+
+services:
+  # Main Magentic-One QA orchestrator
+  magentic-one-qa:
+    build:
+      context: ../../
+      dockerfile: qa-automation/docker/Dockerfile.magentic-one
+    container_name: codex-magentic-one-qa
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_ORGANIZATION=${OPENAI_ORGANIZATION:-}
+      - OPENAI_PROJECT=${OPENAI_PROJECT:-}
+      - QA_CONFIG_PATH=/workspace/qa-automation/config/qa-config.toml
+      - PYTHONPATH=/workspace
+    volumes:
+      - ../../qa-automation:/workspace/qa-automation
+      - ../../examples:/workspace/examples:ro
+      - ../../docs:/workspace/docs:ro
+      - ../../codex-cli:/workspace/codex-cli:ro
+      - qa-logs:/workspace/qa-automation/logs
+      - qa-output:/workspace/qa-automation/output
+      - qa-reports:/workspace/qa-automation/reports
+    networks:
+      - qa-network
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: false
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    restart: unless-stopped
+    
+  # Test webhook server for webhook testing
+  webhook-test-server:
+    image: python:3.11-slim
+    container_name: codex-webhook-test-server
+    command: >
+      sh -c "
+        pip install fastapi uvicorn &&
+        python -c \"
+        from fastapi import FastAPI, Request
+        import uvicorn
+        import json
+        from datetime import datetime
+        
+        app = FastAPI()
+        
+        @app.post('/webhook/test')
+        async def test_webhook(request: Request):
+            body = await request.json()
+            print(f'[{datetime.now()}] Received webhook: {json.dumps(body, indent=2)}')
+            return {'status': 'success', 'received_at': datetime.now().isoformat()}
+            
+        @app.get('/health')
+        async def health():
+            return {'status': 'healthy'}
+            
+        uvicorn.run(app, host='0.0.0.0', port=8080)
+        \"
+      "
+    ports:
+      - "8080:8080"
+    networks:
+      - qa-network
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=50m
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    restart: unless-stopped
+    
+  # Redis for caching and coordination (optional)
+  redis-qa:
+    image: redis:7-alpine
+    container_name: codex-redis-qa
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - qa-network
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=50m
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 128M
+    restart: unless-stopped
+    
+  # Monitoring and logging (optional)
+  qa-monitor:
+    image: prom/prometheus:latest
+    container_name: codex-qa-monitor
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - qa-network
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=50m
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 256M
+    restart: unless-stopped
+
+networks:
+  qa-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  qa-logs:
+    driver: local
+  qa-output:
+    driver: local
+  qa-reports:
+    driver: local
+  redis-data:
+    driver: local
+  prometheus-data:
+    driver: local

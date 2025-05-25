@@ -1,0 +1,122 @@
+# Magentic-One QA Automation Configuration
+
+[qa]
+enabled = true
+debug = true
+timeout_seconds = 300  # 5 minutes default timeout
+max_retries = 3
+parallel_execution = false  # Start with sequential for safety
+
+[openai]
+# OpenAI configuration for Magentic-One agents
+model = "gpt-4o"
+api_key_env = "OPENAI_API_KEY"
+organization_env = "OPENAI_ORGANIZATION"
+project_env = "OPENAI_PROJECT"
+timeout = 60
+max_tokens = 4096
+
+[orchestrator]
+# Orchestrator agent configuration
+model = "gpt-4o"  # Use strongest model for orchestrator
+max_planning_iterations = 5
+progress_check_interval = 3
+task_ledger_update_threshold = 10
+
+[agents]
+# Individual agent configurations
+
+[agents.file_surfer]
+enabled = true
+model = "gpt-4o"
+timeout = 30
+max_file_size_mb = 10
+
+[agents.web_surfer]
+enabled = true
+model = "gpt-4o"
+timeout = 60
+browser = "chromium"
+headless = true
+viewport_width = 1280
+viewport_height = 720
+
+[agents.coder]
+enabled = true
+model = "gpt-4o"
+timeout = 45
+max_code_length = 5000
+
+[agents.computer_terminal]
+enabled = true
+timeout = 30
+allowed_commands = [
+    "ls", "cat", "grep", "find", "head", "tail", "wc",
+    "python", "node", "npm", "pnpm", "cargo", "git",
+    "codex", "echo", "pwd", "cd", "mkdir", "touch"
+]
+blocked_commands = [
+    "rm", "sudo", "chmod", "chown", "kill", "killall",
+    "reboot", "shutdown", "format", "fdisk", "dd"
+]
+
+[safety]
+# Safety and security configurations
+container_isolation = true
+network_restrictions = true
+file_system_restrictions = true
+execution_time_limit = 600  # 10 minutes max
+memory_limit_mb = 1024
+cpu_limit_percent = 50
+
+[safety.allowed_domains]
+# Domains that agents are allowed to access
+domains = [
+    "localhost",
+    "127.0.0.1",
+    "github.com",
+    "api.github.com",
+    "docs.python.org",
+    "pypi.org"
+]
+
+[safety.blocked_domains]
+# Domains that agents should never access
+domains = [
+    "*.social",
+    "*.dating",
+    "*.gambling",
+    "*.adult"
+]
+
+[monitoring]
+# Monitoring and logging configuration
+log_level = "INFO"
+log_file = "qa-automation/logs/magentic-one.log"
+metrics_enabled = true
+audit_trail = true
+human_oversight_required = true
+
+[testing]
+# Testing configuration
+test_data_dir = "qa-automation/test-data"
+output_dir = "qa-automation/output"
+report_format = "json"
+generate_screenshots = true
+save_execution_traces = true
+
+[hooks_validation]
+# Hooks-specific validation settings
+config_validation = true
+syntax_checking = true
+security_scanning = true
+performance_testing = true
+integration_testing = true
+
+[hooks_validation.test_scenarios]
+# Predefined test scenarios for hooks validation
+basic_lifecycle = true
+error_handling = true
+concurrent_execution = true
+timeout_handling = true
+dependency_resolution = true
