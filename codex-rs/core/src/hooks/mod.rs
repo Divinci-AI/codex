@@ -65,11 +65,15 @@
 //! command = ["./scripts/log-task-start.sh"]
 //! ```
 
+pub mod chaining;
 pub mod config;
 pub mod context;
+pub mod dependency;
 pub mod executor;
 pub mod executors;
+pub mod history;
 pub mod manager;
+pub mod metrics;
 pub mod protocol_integration;
 pub mod registry;
 pub mod types;

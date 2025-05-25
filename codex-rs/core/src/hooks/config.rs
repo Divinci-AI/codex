@@ -84,6 +84,9 @@ impl Default for GlobalHooksConfig {
 /// Configuration for a single hook.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct HookConfig {
+    /// Unique identifier for this hook (auto-generated if not provided).
+    pub id: Option<String>,
+
     /// The lifecycle event that triggers this hook.
     pub event: LifecycleEventType,
 
@@ -116,9 +119,75 @@ pub struct HookConfig {
 
     /// Human-readable description of the hook.
     pub description: Option<String>,
+
+    /// Hook IDs that this hook depends on (must complete successfully first).
+    #[serde(default)]
+    pub depends_on: Vec<String>,
+
+    /// Whether this hook can run in parallel with others (default: true).
+    #[serde(default = "default_parallel")]
+    pub parallel: bool,
+
+    /// Maximum number of retries for this hook.
+    #[serde(default)]
+    pub max_retries: u32,
+
+    /// Timeout for this specific hook (overrides global timeout).
+    pub timeout: Option<Duration>,
 }
 
 impl HookConfig {
+    /// Generate a unique ID for this hook if one is not provided.
+    pub fn ensure_id(&mut self) {
+        if self.id.is_none() {
+            self.id = Some(self.generate_id());
+        }
+    }
+
+    /// Generate a unique ID based on hook properties.
+    fn generate_id(&self) -> String {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        self.event.hash(&mut hasher);
+        self.description.hash(&mut hasher);
+        self.priority.hash(&mut hasher);
+
+        // Include hook type in hash
+        match &self.hook_type {
+            HookType::Script { command, .. } => {
+                "script".hash(&mut hasher);
+                command.hash(&mut hasher);
+            }
+            HookType::Webhook { url, .. } => {
+                "webhook".hash(&mut hasher);
+                url.hash(&mut hasher);
+            }
+            HookType::McpTool { server, tool, .. } => {
+                "mcp_tool".hash(&mut hasher);
+                server.hash(&mut hasher);
+                tool.hash(&mut hasher);
+            }
+            HookType::Executable { path, .. } => {
+                "executable".hash(&mut hasher);
+                path.hash(&mut hasher);
+            }
+        }
+
+        format!("hook_{:x}", hasher.finish())
+    }
+
+    /// Get the hook ID, generating one if necessary.
+    pub fn get_id(&self) -> String {
+        self.id.clone().unwrap_or_else(|| {
+            // Create a temporary copy to generate ID
+            let mut temp = self.clone();
+            temp.ensure_id();
+            temp.id.unwrap()
+        })
+    }
+
     /// Validate the hook configuration.
     pub fn validate(&self) -> Result<(), HookError> {
         // Validate hook type specific configuration
@@ -163,6 +232,22 @@ impl HookConfig {
         // Validate condition syntax if present
         if let Some(condition) = &self.condition {
             self.validate_condition(condition)?;
+        }
+
+        // Validate dependencies
+        for dep_id in &self.depends_on {
+            if dep_id.trim().is_empty() {
+                return Err(HookError::Configuration(
+                    "Dependency ID cannot be empty".to_string(),
+                ));
+            }
+        }
+
+        // Validate max_retries
+        if self.max_retries > 10 {
+            return Err(HookError::Configuration(
+                "Maximum retries cannot exceed 10".to_string(),
+            ));
         }
 
         Ok(())
@@ -274,6 +359,10 @@ fn default_timeout_seconds() -> u64 {
 }
 
 fn default_parallel_execution() -> bool {
+    true
+}
+
+fn default_parallel() -> bool {
     true
 }
 
