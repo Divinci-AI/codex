@@ -1,0 +1,44 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 5000,
+    "debug": false,
+    "workers": 1
+  },
+  "openai": {
+    "api_key": "${OPENAI_API_KEY}",
+    "model": "gpt-4o",
+    "timeout": 30
+  },
+  "qa_system": {
+    "enabled": true,
+    "auto_run": true,
+    "safety_level": "standard",
+    "comprehensive_analysis_on_session_end": true,
+    "real_time_validation": true
+  },
+  "webhook": {
+    "timeout": 60,
+    "max_retries": 3,
+    "retry_delay": 5
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "qa-automation/logs/autogen_server.log",
+    "max_size_mb": 100,
+    "backup_count": 5
+  },
+  "security": {
+    "api_key_required": false,
+    "allowed_origins": ["*"],
+    "rate_limit": {
+      "enabled": false,
+      "requests_per_minute": 60
+    }
+  },
+  "session_management": {
+    "max_active_sessions": 50,
+    "session_timeout_minutes": 60,
+    "cleanup_interval_minutes": 10
+  }
+}

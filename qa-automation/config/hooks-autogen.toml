@@ -1,0 +1,109 @@
+# Codex Hooks Configuration with AutoGen Integration
+# This configuration enables the AutoGen QA system to receive
+# lifecycle events from Codex and perform automated testing
+
+[hooks.autogen_integration]
+type = "script"
+script = "qa-automation/hooks/autogen-integration.sh"
+events = [
+    "session_start",
+    "session_end", 
+    "task_start",
+    "task_end",
+    "command_start",
+    "command_end",
+    "error",
+    "file_change"
+]
+timeout = 30
+enabled = true
+
+[hooks.autogen_integration.environment]
+AUTOGEN_SERVER_URL = "http://localhost:5000"
+AUTOGEN_TIMEOUT = "30"
+AUTOGEN_MAX_RETRIES = "3"
+AUTOGEN_RETRY_DELAY = "5"
+
+# Optional: Webhook hook for direct HTTP integration
+[hooks.autogen_webhook]
+type = "webhook"
+url = "http://localhost:5000/webhook/codex"
+method = "POST"
+events = [
+    "session_start",
+    "session_end",
+    "task_end",
+    "error"
+]
+timeout = 30
+enabled = false  # Disabled by default, use script hook instead
+
+[hooks.autogen_webhook.headers]
+"Content-Type" = "application/json"
+"User-Agent" = "Codex-AutoGen-Hook/1.0"
+
+# QA validation hook for configuration files
+[hooks.qa_config_validation]
+type = "script"
+script = "qa-automation/scripts/validate-config.sh"
+events = ["session_start"]
+timeout = 60
+enabled = true
+
+[hooks.qa_config_validation.environment]
+QA_CONFIG_PATH = "examples/hooks.toml"
+QA_VALIDATION_LEVEL = "comprehensive"
+
+# Performance monitoring hook
+[hooks.qa_performance_monitor]
+type = "script"
+script = "qa-automation/scripts/monitor-performance.sh"
+events = ["task_start", "task_end"]
+timeout = 15
+enabled = true
+
+[hooks.qa_performance_monitor.environment]
+MONITOR_CPU = "true"
+MONITOR_MEMORY = "true"
+MONITOR_DISK = "true"
+
+# Error analysis hook
+[hooks.qa_error_analysis]
+type = "script"
+script = "qa-automation/scripts/analyze-error.sh"
+events = ["error"]
+timeout = 45
+enabled = true
+
+[hooks.qa_error_analysis.environment]
+ERROR_ANALYSIS_DEPTH = "detailed"
+INCLUDE_STACK_TRACE = "true"
+GENERATE_REPORT = "true"
+
+# Global hook settings
+[settings]
+working_directory = "."
+timeout = 60
+parallel_execution = true
+max_concurrent_hooks = 5
+
+[settings.environment]
+# Global environment variables for all hooks
+CODEX_QA_ENABLED = "true"
+CODEX_QA_LEVEL = "standard"
+OPENAI_API_KEY = "${OPENAI_API_KEY}"
+
+# Logging configuration
+[settings.logging]
+enabled = true
+level = "info"
+file = "qa-automation/logs/hooks.log"
+max_size_mb = 50
+backup_count = 3
+
+# Security settings
+[settings.security]
+allow_network_access = true
+allow_file_system_access = true
+sandbox_mode = false
+max_execution_time = 300

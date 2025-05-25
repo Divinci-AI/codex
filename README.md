@@ -486,6 +486,74 @@ export OPENROUTER_API_KEY="your-openrouter-key-here"
 
 ---
 
+## AutoAgent QA System
+
+Codex includes an advanced **AutoAgent QA system** powered by Microsoft's Magentic-One multi-agent architecture. This system provides automated testing, validation, and quality assurance for your development workflow.
+
+### Quick Start with AutoAgent
+
+1. **Set up the QA system**:
+```bash
+cd qa-automation
+./scripts/setup.sh
+export OPENAI_API_KEY="your-api-key-here"
+```
+
+2. **Start the AutoGen server**:
+```bash
+./scripts/start-autogen-server.sh
+```
+
+3. **Configure Codex to use AutoAgent**:
+```bash
+# Copy the AutoAgent hooks configuration
+cp qa-automation/config/hooks-autogen.toml ~/.codex/hooks.toml
+
+# Run Codex with QA integration
+codex "create a todo app with tests"
+```
+
+### What AutoAgent Provides
+
+- **🤖 Multi-Agent QA**: 5 specialized AI agents working together
+  - **Orchestrator**: Coordinates testing workflows
+  - **FileSurfer**: Validates configurations and analyzes code
+  - **WebSurfer**: Tests web endpoints and integrations
+  - **Coder**: Generates test scripts and analyzes results
+  - **ComputerTerminal**: Executes CLI commands and tests
+
+- **🔍 Comprehensive Analysis**:
+  - Configuration validation with security checks
+  - Automated test generation and execution
+  - Performance benchmarking and optimization
+  - Regression testing across code changes
+  - End-to-end workflow validation
+
+- **🛡️ Enterprise Security**:
+  - Container isolation for safe execution
+  - Human oversight protocols for critical decisions
+  - Access control and permission management
+  - Prompt injection protection
+  - Real-time monitoring and alerting
+
+### AutoAgent Workflow
+
+1. **Codex receives your request** and starts working
+2. **Lifecycle hooks trigger** and send events to AutoGen server
+3. **Magentic-One agents analyze** the code, configuration, and changes
+4. **QA results are generated** with recommendations and fixes
+5. **Feedback is provided** to improve the development process
+
+The AutoAgent system runs continuously in the background, providing real-time QA analysis and ensuring code quality throughout your development workflow.
+
+### Documentation
+
+- **Complete Guide**: [qa-automation/README.md](qa-automation/README.md)
+- **Safety System**: [qa-automation/safety/README.md](qa-automation/safety/README.md)
+- **Configuration**: [qa-automation/config/](qa-automation/config/)
+
+---
+
 ## Lifecycle Hooks
 
 Codex supports lifecycle hooks that allow you to execute custom scripts, webhooks, or tools at specific points during Codex operations. This enables powerful automation, monitoring, and integration capabilities.
